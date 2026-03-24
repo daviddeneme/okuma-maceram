@@ -4,9 +4,6 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, onSnapshot, query, orderBy, serverTimestamp } from 'firebase/firestore';
 
-// ============================================================================
-// 1. ADIM: FİREBASE BAĞLANTISI (Kendi Bilgileriniz)
-// ============================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyBBdIcHoWFcQCkZxqwK_CqYt4jARiLxVHE",
   authDomain: "a-ogretmen-asistani.firebaseapp.com",
@@ -22,9 +19,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-// ============================================================================
-// 2. ADIM: GEMİNİ API AYARLARI (Şifreniz Eklendi)
-// ============================================================================
+// LÜTFEN KENDİ API ANAHTARINIZI BURAYA EKLİYORUZ
 const EXTERNAL_GEMINI_API_KEY = "AIzaSyDUJOYdeQJ09dV2mHxvrE5NOsygOJjFvLg"; 
 
 const PREDEFINED_AVATARS = ['🐶', '🐱', '🐰', '🦁', '🦄', '🦖', '🦋', '🚀', '🧚', '🦸‍♂️', '🧙‍♀️', '👨‍🚀'];
@@ -128,8 +123,8 @@ export default function App() {
     const statsRef = collection(db, 'artifacts', appId, 'public', 'data', 'stats');
     const unsubscribeStats = onSnapshot(statsRef, (snapshot) => {
       const loadedStats = [];
-      snapshot.forEach((doc) => {
-        loadedStats.push({ id: doc.id, ...doc.data() });
+      snapshot.forEach((docItem) => {
+        loadedStats.push({ id: docItem.id, ...docItem.data() });
       });
       loadedStats.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
       setStats(loadedStats);
@@ -138,8 +133,8 @@ export default function App() {
     const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
     const unsubscribeStudents = onSnapshot(studentsRef, (snapshot) => {
       const loadedStudents = [];
-      snapshot.forEach((doc) => {
-        loadedStudents.push({ id: doc.id, ...doc.data() });
+      snapshot.forEach((docItem) => {
+        loadedStudents.push({ id: docItem.id, ...docItem.data() });
       });
       loadedStudents.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
       setStudents(loadedStudents);
@@ -333,7 +328,7 @@ export default function App() {
       generationConfig: { responseMimeType: "application/json" }
     };
 
-    let delays = [1000, 2000, 4000, 8000, 16000]; 
+    const delays = [1000, 2000, 4000, 8000, 16000]; 
     for (let i = 0; i < 5; i++) {
       try {
         const response = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
@@ -537,7 +532,7 @@ export default function App() {
           reader.readAsDataURL(audioBlob);
           reader.onloadend = () => {
             setAudioUrl(reader.result);
-          }
+          };
         };
 
         mediaRecorder.start();
@@ -947,7 +942,7 @@ export default function App() {
                     <div key={st.name} onClick={() => setSelectedStudentForProgress(st)} className="bg-white border-4 border-emerald-100 rounded-[2rem] p-6 hover:border-emerald-300 hover:shadow-lg cursor-pointer transition-all active:scale-95 group">
                       <div className="flex items-center gap-4 mb-4 border-b-2 border-emerald-50 pb-4">
                         <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-3xl overflow-hidden shadow-sm">
-                          {st.avatar?.startsWith('data:image') ? <img src={st.avatar} alt="ava" className="w-full h-full object-cover"/> : st.avatar}
+                          {st.avatar?.startsWith('data:image') ? <img src={st.avatar} alt="ava" className="w-full h-full object-cover" /> : st.avatar}
                         </div>
                         <div>
                           <h3 className="font-black text-2xl text-emerald-800 group-hover:text-emerald-600">{st.name}</h3>
@@ -955,11 +950,11 @@ export default function App() {
                         </div>
                       </div>
                       <div className="flex justify-between items-center text-lg font-bold text-slate-700 mb-2">
-                        <span className="flex items-center gap-2"><TrendingUp className="w-5 h-5 text-emerald-500"/> Ort. Hız:</span>
+                        <span className="flex items-center gap-2"><TrendingUp className="w-5 h-5 text-emerald-500" /> Ort. Hız:</span>
                         <span className="text-emerald-600">{st.avgWpm} wpm</span>
                       </div>
                       <div className="flex justify-between items-center text-lg font-bold text-slate-700">
-                        <span className="flex items-center gap-2"><Award className="w-5 h-5 text-amber-500"/> Ort. Doğru:</span>
+                        <span className="flex items-center gap-2"><Award className="w-5 h-5 text-amber-500" /> Ort. Doğru:</span>
                         <span className="text-amber-600">{st.avgComp} / 2</span>
                       </div>
                     </div>
@@ -968,11 +963,11 @@ export default function App() {
               ) : (
                 <div className="animate-fade-in">
                   <button onClick={() => setSelectedStudentForProgress(null)} className="mb-6 font-bold text-emerald-600 flex items-center gap-2 hover:text-emerald-800">
-                    <ArrowLeft className="w-5 h-5"/> Listeye Dön
+                    <ArrowLeft className="w-5 h-5" /> Listeye Dön
                   </button>
                   <div className="bg-emerald-50 p-8 rounded-[2rem] border-4 border-emerald-200 mb-8 flex flex-col md:flex-row items-center gap-8">
                      <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center text-6xl shadow-xl border-8 border-emerald-100 overflow-hidden">
-                        {selectedStudentForProgress.avatar?.startsWith('data:image') ? <img src={selectedStudentForProgress.avatar} alt="ava" className="w-full h-full object-cover"/> : selectedStudentForProgress.avatar}
+                        {selectedStudentForProgress.avatar?.startsWith('data:image') ? <img src={selectedStudentForProgress.avatar} alt="ava" className="w-full h-full object-cover" /> : selectedStudentForProgress.avatar}
                      </div>
                      <div className="flex-1 text-center md:text-left">
                         <h2 className="text-4xl font-black text-emerald-800 mb-4">{selectedStudentForProgress.name} Öğrenme Karnesi</h2>
@@ -1053,7 +1048,7 @@ export default function App() {
                           <td className="p-5 text-slate-500 font-medium">{row.date}</td>
                           <td className="p-5 text-emerald-700 flex items-center gap-3 text-xl">
                             <div className="bg-emerald-100 w-10 h-10 rounded-full flex items-center justify-center overflow-hidden">
-                              {row.avatar?.startsWith('data:image') ? <img src={row.avatar} className="w-full h-full object-cover"/> : row.avatar || <User className="w-5 h-5 text-emerald-600" />}
+                              {row.avatar?.startsWith('data:image') ? <img src={row.avatar} className="w-full h-full object-cover" /> : row.avatar || <User className="w-5 h-5 text-emerald-600" />}
                             </div>
                             {row.name}
                           </td>
