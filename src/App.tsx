@@ -23,9 +23,8 @@ const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 // ============================================================================
-// 2. ADIM: GEMİNİ API AYARLARI
+// 2. ADIM: GEMİNİ API AYARLARI (Şifreniz Eklendi)
 // ============================================================================
-// LÜTFEN KENDİ API ANAHTARINIZI AŞAĞIDAKİ TIRNAKLARIN İÇİNE YAPIŞTIRIN:
 const EXTERNAL_GEMINI_API_KEY = "AIzaSyDUJOYdeQJ09dV2mHxvrE5NOsygOJjFvLg"; 
 
 const PREDEFINED_AVATARS = ['🐶', '🐱', '🐰', '🦁', '🦄', '🦖', '🦋', '🚀', '🧚', '🦸‍♂️', '🧙‍♀️', '👨‍🚀'];
@@ -517,12 +516,8 @@ export default function App() {
   const beginTimer = async (withRecording = false) => {
     if (withRecording) {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
-         setMicError("Cihazınız ses kaydını desteklemiyor. Sessiz okumaya geçiliyor...");
-         setTimeout(() => {
-           setMicError('');
-           setStartTime(Date.now());
-           setView('reading-active');
-         }, 3000);
+         setMicError("Bu ekran mikrofonu desteklemiyor (Siteyi yayınladığınızda çalışacaktır). Lütfen 'Sessiz Oku' seçeneğini kullanın.");
+         setTimeout(() => setMicError(''), 5000);
          return;
       }
       
@@ -548,12 +543,8 @@ export default function App() {
         mediaRecorder.start();
         setIsRecording(true);
       } catch (err) {
-        setMicError("Mikrofon izni alınamadı. Sessiz okumaya geçiliyor...");
-        setTimeout(() => {
-           setMicError('');
-           setStartTime(Date.now());
-           setView('reading-active');
-        }, 3000);
+        setMicError("Mikrofon izni alınamadı. Tarayıcı ayarlarından izin verin veya 'Sessiz Oku' seçeneğini kullanın.");
+        setTimeout(() => setMicError(''), 5000);
         return;
       }
     }
@@ -875,7 +866,7 @@ export default function App() {
 
     return (
       <div className="max-w-6xl mx-auto bg-white/95 rounded-[3rem] shadow-2xl border-8 border-emerald-200 animate-fade-in mt-12 overflow-hidden min-h-[600px]">
-        <div className="bg-emerald-500 p-6 md:p-8 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="bg-emerald-500 p-6 sm:p-8 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="flex items-center gap-4">
             <div className="bg-white/20 p-4 rounded-[1.5rem] backdrop-blur-sm"><BarChart3 className="w-10 h-10" /></div>
             <div>
