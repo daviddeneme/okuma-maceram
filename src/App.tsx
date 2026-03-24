@@ -4,6 +4,9 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, onSnapshot, query, orderBy, serverTimestamp } from 'firebase/firestore';
 
+// ============================================================================
+// 1. FİREBASE BAĞLANTISI
+// ============================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyBBdIcHoWFcQCkZxqwK_CqYt4jARiLxVHE",
   authDomain: "a-ogretmen-asistani.firebaseapp.com",
@@ -19,7 +22,9 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-// LÜTFEN KENDİ API ANAHTARINIZI BURAYA EKLİYORUZ
+// ============================================================================
+// 2. GEMİNİ API AYARLARI (Şifreniz Eklendi)
+// ============================================================================
 const EXTERNAL_GEMINI_API_KEY = "AIzaSyDUJOYdeQJ09dV2mHxvrE5NOsygOJjFvLg"; 
 
 const PREDEFINED_AVATARS = ['🐶', '🐱', '🐰', '🦁', '🦄', '🦖', '🦋', '🚀', '🧚', '🦸‍♂️', '🧙‍♀️', '👨‍🚀'];
@@ -511,7 +516,7 @@ export default function App() {
   const beginTimer = async (withRecording = false) => {
     if (withRecording) {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
-         setMicError("Bu ekran mikrofonu desteklemiyor (Siteyi yayınladığınızda çalışacaktır). Lütfen 'Sessiz Oku' seçeneğini kullanın.");
+         setMicError("Cihazınız ses kaydını desteklemiyor. Lütfen 'Sessiz Oku' seçeneğini kullanın.");
          setTimeout(() => setMicError(''), 5000);
          return;
       }
@@ -538,7 +543,7 @@ export default function App() {
         mediaRecorder.start();
         setIsRecording(true);
       } catch (err) {
-        setMicError("Mikrofon izni alınamadı. Tarayıcı ayarlarından izin verin veya 'Sessiz Oku' seçeneğini kullanın.");
+        setMicError("Mikrofon izni alınamadı. Lütfen tarayıcıdan izin verin veya 'Sessiz Oku' seçeneğini kullanın.");
         setTimeout(() => setMicError(''), 5000);
         return;
       }
@@ -750,112 +755,6 @@ export default function App() {
     }));
   };
 
-  const renderProfileModal = () => {
-    if (!showProfileModal) return null;
-
-    return (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
-        <div className="bg-white rounded-[3rem] p-8 md:p-12 max-w-lg w-full shadow-2xl border-8 border-sky-300 relative max-h-[90vh] overflow-y-auto">
-          <button
-            onClick={() => setShowProfileModal(false)}
-            className="absolute top-4 right-4 bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-600 p-3 rounded-full font-black transition-colors z-10"
-          >
-            <X className="w-6 h-6" />
-          </button>
-
-          <h3 className="font-black text-3xl md:text-4xl text-sky-800 mb-8 text-center flex items-center justify-center gap-3">
-            <span className="bg-sky-200 w-12 h-12 flex items-center justify-center rounded-full text-sky-600">👤</span> Kişi Ekranı
-          </h3>
-
-          <div className="flex justify-center mb-8">
-            <div className="relative group">
-              {studentAvatar.startsWith('data:image') ? (
-                <img src={studentAvatar} alt="Avatar" className="w-32 h-32 rounded-full object-cover border-8 border-sky-100 shadow-xl" />
-              ) : (
-                <div className="w-32 h-32 bg-sky-50 rounded-full flex items-center justify-center text-7xl shadow-xl border-8 border-sky-200">{studentAvatar}</div>
-              )}
-              {savedProfile?.streak > 0 && (
-                <div className="absolute -bottom-2 -right-2 bg-orange-100 border-4 border-white shadow-lg rounded-full px-3 py-1 flex items-center gap-1 z-20">
-                   <Flame className="w-6 h-6 text-orange-500 fill-orange-500 animate-pulse" />
-                   <span className="font-black text-orange-600 text-xl">{savedProfile.streak}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {savedProfile ? (
-            <>
-              <div className="flex flex-wrap justify-center gap-3 mb-8">
-                {PREDEFINED_AVATARS.map(ava => (
-                  <button
-                    key={ava}
-                    onClick={() => handleAvatarChange(ava)}
-                    className={`w-14 h-14 text-3xl flex items-center justify-center rounded-full transition-transform ${studentAvatar === ava ? 'scale-125 bg-fuchsia-200 shadow-md ring-4 ring-fuchsia-400' : 'bg-slate-50 hover:scale-110 shadow-sm border-2 border-slate-200'}`}
-                  >
-                    {ava}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex justify-center mb-8">
-                <input type="file" accept="image/*" ref={fileInputRef} onChange={handleAvatarUpload} className="hidden" />
-                <button 
-                  onClick={() => fileInputRef.current.click()}
-                  className="flex items-center gap-2 bg-sky-100 text-sky-800 font-bold px-6 py-4 rounded-full hover:bg-sky-200 transition-colors border-4 border-sky-200"
-                >
-                  <Camera className="w-6 h-6" /> Fotoğraf Çek / Yükle
-                </button>
-              </div>
-
-              <div className="border-t-4 border-sky-100 pt-6 text-center">
-                <button
-                  onClick={() => {
-                    clearProfile();
-                    setShowProfileModal(false);
-                  }}
-                  className="text-rose-500 hover:text-rose-600 font-bold text-lg underline transition-colors decoration-2 underline-offset-4"
-                >
-                  Bu Cihazdan Çıkış Yap
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="text-center p-6 bg-amber-50 rounded-2xl border-4 border-amber-100 mb-8">
-              <p className="text-amber-800 font-bold text-lg">
-                Kendi avatarını seçebilmek veya fotoğrafını yükleyebilmek için giriş ekranında <strong>"Beni bu telefonda hatırla"</strong> seçeneğini işaretlemelisin! 🌟
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderTeacherLoginScreen = () => (
-    <div className="max-w-md mx-auto w-full bg-white/95 backdrop-blur-sm p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] shadow-2xl border-4 sm:border-8 border-emerald-200 animate-fade-in mt-20 md:mt-12 relative">
-      <button onClick={() => { setView('student-setup'); setPasswordError(false); setTeacherPassword(''); }} className="text-emerald-500 hover:text-emerald-700 font-bold mb-6 flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-full transition-colors border-b-4 border-emerald-200 active:border-b-0 active:translate-y-1">
-        <ArrowLeft className="w-5 h-5" /> Geri Dön
-      </button>
-      <div className="text-center mb-8">
-        <div className="bg-emerald-400 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl sm:rounded-[2rem] flex items-center justify-center mx-auto mb-4 shadow-lg border-b-[4px] sm:border-b-[6px] border-emerald-600 rotate-3">
-          <BarChart3 className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
-        </div>
-        <h2 className="text-3xl sm:text-4xl font-black text-emerald-600 tracking-wide">Öğretmen Girişi</h2>
-        <p className="text-emerald-700/70 mt-2 font-medium">Lütfen şifrenizi girin.</p>
-      </div>
-      <form onSubmit={handleTeacherLogin} className="space-y-6">
-        <div>
-          <label className="block text-lg sm:text-xl font-bold text-emerald-800 mb-2">Şifre: <span className="text-sm font-normal opacity-70">(İpucu: Varsayılan 1234)</span></label>
-          <input type="password" value={teacherPassword} onChange={(e) => { setTeacherPassword(e.target.value); setPasswordError(false); }} className={`w-full text-center text-3xl sm:text-4xl tracking-[1em] p-4 sm:p-6 border-4 rounded-2xl sm:rounded-[2rem] focus:outline-none transition-all ${passwordError ? 'border-rose-400 bg-rose-50 text-rose-600' : 'border-emerald-200 bg-emerald-50 focus:border-emerald-400 focus:bg-white text-emerald-800'}`} placeholder="••••" maxLength={4} />
-          {passwordError && <p className="text-rose-500 text-center mt-3 font-bold animate-bounce">Eyvah, hatalı şifre! Tekrar dene.</p>}
-        </div>
-        <button type="submit" className="w-full bg-emerald-500 text-white text-xl sm:text-2xl font-black py-4 sm:py-5 rounded-2xl sm:rounded-[2rem] border-b-[4px] sm:border-b-[6px] border-emerald-700 active:border-b-0 active:translate-y-[4px] sm:active:translate-y-[6px] transition-all shadow-xl mt-4">
-          GİRİŞ YAP 🚀
-        </button>
-      </form>
-    </div>
-  );
-
   const renderTeacherDashboard = () => {
     const progressData = getStudentProgressData();
 
@@ -884,7 +783,6 @@ export default function App() {
 
         <div className="p-6 md:p-10 overflow-x-auto min-h-[500px]">
           
-          {/* SINIF YÖNETİMİ SEKMESİ */}
           {teacherTab === 'students' && (
             <div className="max-w-4xl mx-auto animate-fade-in">
               <h3 className="text-3xl font-black text-emerald-800 mb-8 flex items-center gap-3">
@@ -932,7 +830,6 @@ export default function App() {
             </div>
           )}
 
-          {/* GELİŞİM TAKİBİ SEKMESİ */}
           {teacherTab === 'progress' && (
             <div className="animate-fade-in">
               {!selectedStudentForProgress ? (
@@ -942,7 +839,7 @@ export default function App() {
                     <div key={st.name} onClick={() => setSelectedStudentForProgress(st)} className="bg-white border-4 border-emerald-100 rounded-[2rem] p-6 hover:border-emerald-300 hover:shadow-lg cursor-pointer transition-all active:scale-95 group">
                       <div className="flex items-center gap-4 mb-4 border-b-2 border-emerald-50 pb-4">
                         <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-3xl overflow-hidden shadow-sm">
-                          {st.avatar?.startsWith('data:image') ? <img src={st.avatar} alt="ava" className="w-full h-full object-cover" /> : st.avatar}
+                          {st.avatar?.startsWith('data:image') ? <img src={st.avatar} alt="ava" className="w-full h-full object-cover"/> : st.avatar}
                         </div>
                         <div>
                           <h3 className="font-black text-2xl text-emerald-800 group-hover:text-emerald-600">{st.name}</h3>
@@ -950,11 +847,11 @@ export default function App() {
                         </div>
                       </div>
                       <div className="flex justify-between items-center text-lg font-bold text-slate-700 mb-2">
-                        <span className="flex items-center gap-2"><TrendingUp className="w-5 h-5 text-emerald-500" /> Ort. Hız:</span>
+                        <span className="flex items-center gap-2"><TrendingUp className="w-5 h-5 text-emerald-500"/> Ort. Hız:</span>
                         <span className="text-emerald-600">{st.avgWpm} wpm</span>
                       </div>
                       <div className="flex justify-between items-center text-lg font-bold text-slate-700">
-                        <span className="flex items-center gap-2"><Award className="w-5 h-5 text-amber-500" /> Ort. Doğru:</span>
+                        <span className="flex items-center gap-2"><Award className="w-5 h-5 text-amber-500"/> Ort. Doğru:</span>
                         <span className="text-amber-600">{st.avgComp} / 2</span>
                       </div>
                     </div>
@@ -963,11 +860,11 @@ export default function App() {
               ) : (
                 <div className="animate-fade-in">
                   <button onClick={() => setSelectedStudentForProgress(null)} className="mb-6 font-bold text-emerald-600 flex items-center gap-2 hover:text-emerald-800">
-                    <ArrowLeft className="w-5 h-5" /> Listeye Dön
+                    <ArrowLeft className="w-5 h-5"/> Listeye Dön
                   </button>
                   <div className="bg-emerald-50 p-8 rounded-[2rem] border-4 border-emerald-200 mb-8 flex flex-col md:flex-row items-center gap-8">
                      <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center text-6xl shadow-xl border-8 border-emerald-100 overflow-hidden">
-                        {selectedStudentForProgress.avatar?.startsWith('data:image') ? <img src={selectedStudentForProgress.avatar} alt="ava" className="w-full h-full object-cover" /> : selectedStudentForProgress.avatar}
+                        {selectedStudentForProgress.avatar?.startsWith('data:image') ? <img src={selectedStudentForProgress.avatar} alt="ava" className="w-full h-full object-cover"/> : selectedStudentForProgress.avatar}
                      </div>
                      <div className="flex-1 text-center md:text-left">
                         <h2 className="text-4xl font-black text-emerald-800 mb-4">{selectedStudentForProgress.name} Öğrenme Karnesi</h2>
@@ -1018,7 +915,6 @@ export default function App() {
             </div>
           )}
 
-          {/* SON İŞLEMLER SEKMESİ */}
           {teacherTab === 'stats' && (
             <div className="animate-fade-in">
               <h3 className="text-3xl font-black text-emerald-800 mb-8 flex items-center gap-3">
@@ -1048,7 +944,7 @@ export default function App() {
                           <td className="p-5 text-slate-500 font-medium">{row.date}</td>
                           <td className="p-5 text-emerald-700 flex items-center gap-3 text-xl">
                             <div className="bg-emerald-100 w-10 h-10 rounded-full flex items-center justify-center overflow-hidden">
-                              {row.avatar?.startsWith('data:image') ? <img src={row.avatar} className="w-full h-full object-cover" /> : row.avatar || <User className="w-5 h-5 text-emerald-600" />}
+                              {row.avatar?.startsWith('data:image') ? <img src={row.avatar} className="w-full h-full object-cover"/> : row.avatar || <User className="w-5 h-5 text-emerald-600" />}
                             </div>
                             {row.name}
                           </td>
@@ -1067,7 +963,6 @@ export default function App() {
             </div>
           )}
 
-          {/* ÖDEV SEKMESİ */}
           {teacherTab === 'homework' && (
             <div className="max-w-3xl mx-auto animate-fade-in">
               <h3 className="text-3xl font-black text-emerald-800 mb-8 flex items-center gap-3">
@@ -1123,7 +1018,6 @@ export default function App() {
             </div>
           )}
 
-          {/* AYARLAR SEKMESİ */}
           {teacherTab === 'settings' && (
             <div className="max-w-4xl mx-auto animate-fade-in">
               <h3 className="text-3xl font-black text-emerald-800 mb-8 flex items-center gap-3">
@@ -1142,6 +1036,216 @@ export default function App() {
             </div>
           )}
         </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-fuchsia-200 font-sans flex flex-col relative overflow-x-hidden pt-8 pb-12">
+      {!['teacher-login', 'teacher'].includes(view) && (
+        <button onClick={() => setShowProfileModal(true)} className="absolute top-4 left-4 flex items-center gap-3 bg-white/95 p-2 pr-6 rounded-full shadow-xl border-4 border-white z-50 transition-transform active:scale-95">
+           <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-sky-100 border-2 border-sky-300 text-2xl">
+             {savedProfile?.avatar?.startsWith('data:image') ? <img src={savedProfile.avatar} className="w-full h-full object-cover"/> : (savedProfile?.avatar || studentAvatar)}
+           </div>
+           <span className="font-black text-sky-800 text-xl tracking-tight">{savedProfile ? savedProfile.studentName.split(' ')[0] : 'Giriş'}</span>
+        </button>
+      )}
+
+      {showProfileModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+           <div className="bg-white rounded-[2rem] p-8 max-w-md w-full relative border-8 border-sky-300 max-h-[90vh] overflow-y-auto shadow-2xl">
+             <button onClick={()=>setShowProfileModal(false)} className="absolute top-4 right-4 text-slate-400 p-2 hover:bg-slate-100 rounded-full transition-colors"><X /></button>
+             <h3 className="text-2xl font-black text-sky-800 mb-6 text-center">Profil Ayarları</h3>
+             <div className="flex flex-wrap justify-center gap-3 mb-8">
+                {PREDEFINED_AVATARS.map(ava => (
+                  <button key={ava} onClick={() => handleAvatarChange(ava)} className={`w-14 h-14 text-2xl rounded-full border-4 transition-all ${studentAvatar === ava ? 'border-fuchsia-500 bg-fuchsia-50 shadow-md scale-110' : 'border-slate-100 bg-white hover:border-sky-300'}`}>{ava}</button>
+                ))}
+             </div>
+             <div className="border-t pt-6 text-center">
+                {savedProfile && <button onClick={()=>{clearProfile(); setShowProfileModal(false)}} className="text-rose-500 font-black underline hover:text-rose-700">Oturumu Kapat</button>}
+             </div>
+           </div>
+        </div>
+      )}
+
+      <div className="flex-1 w-full px-4">
+        {view === 'student-setup' && !isGeneratingStory && (
+          <div className="max-w-xl mx-auto bg-white/95 p-6 sm:p-12 rounded-[2rem] sm:rounded-[3rem] shadow-2xl border-8 border-sky-300 animate-fade-in mt-20 relative">
+             <button onClick={()=>setView('teacher-login')} className="absolute top-4 right-4 w-12 h-12 bg-emerald-400 rounded-full flex items-center justify-center text-white shadow-lg active:scale-90 transition-transform hover:brightness-110"><BarChart3 /></button>
+             <div className="text-center mb-8">
+               <h2 className="text-3xl sm:text-4xl font-black text-sky-600 mb-2">1/A Sınıf Asistanı</h2>
+               <p className="text-sky-800/70 font-bold">Öğrenme Macerasına Hoş Geldin!</p>
+             </div>
+             <div className="space-y-6">
+                <div className="bg-sky-50 p-5 sm:p-6 rounded-2xl border-4 border-sky-100">
+                   <div className="mb-4 text-left">
+                      <label className="block text-lg font-black text-sky-800 mb-2">Ad Soyad</label>
+                      <select value={studentName} onChange={e=>{setStudentName(e.target.value); setLoginError('')}} className="w-full p-4 border-4 border-sky-200 rounded-xl font-bold bg-white outline-none focus:border-fuchsia-400 appearance-none cursor-pointer">
+                         <option value="">İsmini Seç...</option>
+                         {students.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                      </select>
+                   </div>
+                   <div className="text-left">
+                      <label className="block text-lg font-black text-sky-800 mb-2">Şifre</label>
+                      <input type="password" value={studentPassword} onChange={e=>{setStudentPassword(e.target.value); setLoginError('')}} className="w-full p-4 border-4 border-sky-200 rounded-xl text-center text-2xl tracking-[0.8em] sm:tracking-[1em] bg-white outline-none focus:border-fuchsia-400 font-bold" placeholder="••••" maxLength={4} />
+                   </div>
+                   {loginError && <p className="text-rose-500 font-bold text-center mt-3 animate-bounce">{loginError}</p>}
+                </div>
+
+                {activeHomework && (
+                  <div className="p-4 sm:p-6 bg-amber-300 rounded-2xl sm:rounded-[2rem] border-b-[4px] sm:border-b-[8px] border-amber-500 relative overflow-hidden shadow-xl">
+                    <h3 className="text-2xl sm:text-3xl font-black text-amber-900 mb-1 sm:mb-2 relative z-10">📚 Yeni Ödevin Var!</h3>
+                    <p className="text-amber-800 font-bold text-sm sm:text-lg mb-4 relative z-10">Öğretmeninin gönderdiği görevi yap.</p>
+                    <button onClick={handleStartHomework} className="w-full bg-white text-amber-600 text-xl font-black py-3 rounded-xl shadow-lg hover:scale-105 transition-all">GÖREVİ BAŞLAT 🚀</button>
+                  </div>
+                )}
+
+                <div className="bg-sky-50 p-5 sm:p-6 rounded-2xl border-4 border-sky-100">
+                   <label className="block text-lg font-black text-sky-800 mb-4">Ne Okumak İstersin?</label>
+                   <div className="flex flex-wrap gap-2 mb-4">
+                      {PREDEFINED_TOPICS.map(t => (
+                        <button key={t} onClick={() => setSelectedTopics(prev => prev.includes(t) ? prev.filter(x=>x!==t) : [...prev, t])} className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border-b-4 font-bold text-sm sm:text-base transition-all ${selectedTopics.includes(t) ? 'bg-fuchsia-500 text-white border-fuchsia-700 scale-105 shadow-md' : 'bg-white border-sky-300 hover:bg-sky-50'}`}>{t}</button>
+                      ))}
+                   </div>
+                   <input type="text" value={customTopic} onChange={(e) => setCustomTopic(e.target.value)} className="w-full text-base sm:text-xl p-3 sm:p-4 border-2 sm:border-4 border-sky-200 rounded-xl sm:rounded-2xl focus:border-fuchsia-400 bg-white focus:outline-none text-sky-800 font-bold placeholder:font-normal placeholder:text-sky-300 mb-4" placeholder="Veya başka bir şey yaz..." />
+                   
+                   <label className="block text-lg font-black text-sky-800 mb-2 mt-2">Okuma Seviyesi</label>
+                   <div className="flex gap-2">
+                      {[{id: '1', label: 'Kolay 🐢'}, {id: '2', label: 'Orta 🐇'}, {id: '3', label: 'Zor 🐆'}].map(lvl => (
+                        <button key={lvl.id} onClick={() => setLevel(lvl.id)} className={`flex-1 py-3 rounded-xl border-b-4 font-black transition-all ${level === lvl.id ? 'bg-amber-400 text-amber-900 border-amber-600 scale-105 shadow-md' : 'bg-white border-sky-200 hover:bg-sky-50'}`}>{lvl.label}</button>
+                      ))}
+                   </div>
+                </div>
+
+                <div onClick={() => setRememberMe(!rememberMe)} className="flex items-center gap-3 bg-white p-3 rounded-xl border-2 sm:border-4 border-sky-100 cursor-pointer">
+                  <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center border-2 sm:border-4 transition-colors ${rememberMe ? 'bg-fuchsia-500 border-fuchsia-500' : 'bg-white border-sky-300'}`}>
+                    {rememberMe && <Check className="w-4 h-4 text-white" strokeWidth={4} />}
+                  </div>
+                  <div>
+                    <label className="text-sky-800 font-black block text-sm sm:text-base cursor-pointer">Beni bu telefonda hatırla</label>
+                    <p className="text-sky-600 font-medium text-xs sm:text-sm">Avatarını seçmek için işaretle!</p>
+                  </div>
+                </div>
+
+                <button onClick={handleStartFreeReading} className="w-full bg-sky-500 text-white py-5 sm:py-6 rounded-2xl text-2xl font-black border-b-8 border-sky-700 active:border-b-0 active:translate-y-2 transition-all shadow-xl hover:brightness-110">HİKAYEMİ OLUŞTUR ✨</button>
+             </div>
+          </div>
+        )}
+
+        {isGeneratingStory && (
+          <div className="max-w-md mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl border-8 border-sky-300 text-center flex flex-col items-center justify-center min-h-[400px] mt-20 animate-fade-in">
+             <Loader2 className="w-20 h-20 text-sky-500 animate-spin mb-6" />
+             <h2 className="text-2xl sm:text-3xl font-black text-sky-600 mb-2">Metin Yazılıyor...</h2>
+             <p className="text-sky-800 font-bold">Senin için <strong>{interest || selectedTopics.join(', ') || customTopic}</strong> hakkında yepyeni bir macera yazıyoruz! Lütfen bekle...</p>
+          </div>
+        )}
+
+        {view === 'reading-ready' && (
+          <div className="max-w-2xl mx-auto bg-white/95 p-8 sm:p-12 rounded-[3rem] shadow-2xl border-8 border-amber-300 mt-20 text-center animate-fade-in">
+             <div className="text-6xl sm:text-7xl mb-6">✨</div>
+             <h2 className="text-3xl sm:text-4xl font-black text-amber-600 mb-4 text-center">Hazır mısın?</h2>
+             <p className="text-lg sm:text-xl text-amber-900 font-bold mb-8 leading-relaxed text-center">Senin için <strong className="text-sky-600">{interest}</strong> hakkında çok tatlı bir metin hazırladım.</p>
+             
+             {micError && (
+               <div className="bg-rose-100 border-4 border-rose-300 text-rose-700 p-4 rounded-2xl font-bold mb-6 animate-pulse text-sm sm:text-lg shadow-sm">
+                 🎙️ {micError}
+               </div>
+             )}
+
+             <div className="flex flex-col sm:flex-row gap-4">
+                <button onClick={() => beginTimer(false)} className="flex-1 bg-sky-500 text-white py-4 sm:py-5 rounded-2xl text-xl font-black border-b-4 border-sky-700 active:scale-95 transition-transform shadow-lg">SESSİZ OKU 📖</button>
+                <button onClick={() => beginTimer(true)} className="flex-1 bg-rose-500 text-white py-4 sm:py-5 rounded-2xl text-xl font-black border-b-4 border-rose-700 flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg"><Mic className="w-6 h-6" /> SESLİ OKU</button>
+             </div>
+          </div>
+        )}
+
+        {view === 'reading-active' && (
+          <div className="max-w-4xl mx-auto mt-12 space-y-6 sm:space-y-8 animate-fade-in px-2 sm:px-0">
+             <div className="bg-[#fdfbf7] p-6 sm:p-14 rounded-[2rem] sm:rounded-[3rem] shadow-2xl border-8 border-sky-200 relative">
+                {isRecording && <div className="absolute top-4 right-4 bg-rose-500 text-white px-3 py-1 sm:px-4 sm:py-2 rounded-full font-black flex items-center gap-2 animate-pulse text-xs sm:text-base border-2 border-white shadow-md"><Mic className="w-4 h-4 sm:w-5 sm:h-5" /> KAYDEDİLİYOR...</div>}
+                <p className="text-xl sm:text-4xl leading-[2.8rem] sm:leading-[4rem] font-bold text-slate-800 whitespace-pre-wrap">{storyData.text}</p>
+             </div>
+             {!isReadingFinished && <div className="flex justify-center"><button onClick={finishReading} className="bg-emerald-500 text-white py-5 px-12 sm:py-6 sm:px-16 rounded-full text-3xl sm:text-4xl font-black shadow-[0_8px_0_0_#047857] active:shadow-none active:translate-y-2 transition-all hover:brightness-105">BİTİRDİM! 🎉</button></div>}
+             {isReadingFinished && (
+               <div className="bg-white p-6 sm:p-8 rounded-[2rem] border-8 border-fuchsia-300 space-y-8 sm:space-y-10 shadow-xl animate-fade-in">
+                 <h2 className="text-2xl sm:text-3xl font-black text-fuchsia-600 text-center">Soruları Cevapla 🧠</h2>
+                 {storyData.questions.map((q, idx) => (
+                   <div key={q.id} className="bg-fuchsia-50 p-5 sm:p-6 rounded-2xl border-4 border-fuchsia-100 relative">
+                     <div className="absolute -top-4 -left-4 sm:-top-6 sm:-left-6 bg-fuchsia-400 text-white w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-full font-black text-xl sm:text-2xl shadow-md border-2 border-white">{idx + 1}</div>
+                     <div className="flex justify-between items-center mb-4">
+                       <h3 className="text-lg sm:text-2xl font-black text-fuchsia-900 mt-1 text-left">{q.q}</h3>
+                       <button onClick={() => playAudio(q.q)} className="bg-sky-400 text-white p-3 rounded-full shadow-md"><Volume2 className="w-6 h-6"/></button>
+                     </div>
+                     <div className="flex flex-col gap-3">
+                        {q.options.map((opt, optIdx) => (
+                          <button key={optIdx} onClick={() => setAnswers({...answers, [q.id]: optIdx})} className={`p-4 rounded-xl font-bold text-base sm:text-lg border-b-4 transition-all leading-tight text-left active:translate-y-1 ${answers[q.id] === optIdx ? 'bg-emerald-500 text-white border-emerald-700 scale-102 shadow-md' : 'bg-white border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-100'}`}>
+                            {opt}
+                          </button>
+                        ))}
+                     </div>
+                   </div>
+                 ))}
+                 <button onClick={checkAnswers} disabled={Object.keys(answers).length < 2} className="w-full bg-sky-500 text-white py-5 sm:py-6 rounded-2xl text-2xl sm:text-3xl font-black border-b-8 border-sky-700 disabled:opacity-50 transition-all active:translate-y-1 hover:brightness-110 shadow-lg">KARNEMİ GÖSTER 🏆</button>
+               </div>
+             )}
+          </div>
+        )}
+
+        {view === 'retry-prompt' && (
+          <div className="max-w-xl mx-auto bg-white/95 p-6 sm:p-10 rounded-[2rem] shadow-2xl border-4 sm:border-8 border-amber-400 text-center animate-fade-in mt-16">
+            <div className="text-6xl sm:text-8xl mb-4 sm:mb-6 animate-bounce">🤔</div>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-amber-700 mb-4 sm:mb-6">Küçük Bir Hata!</h2>
+            <p className="text-lg sm:text-2xl text-amber-900 font-bold mb-6 sm:mb-10 leading-relaxed">Bazı soruları yanlış cevapladın. İstersen metni <strong>bir kez daha</strong> dikkatlice okuyup cevaplarını düzeltebilirsin!</p>
+            <div className="flex flex-col gap-4 sm:gap-5">
+              <button onClick={handleRetry} className="bg-amber-500 text-white text-xl sm:text-2xl font-black py-4 sm:py-6 rounded-2xl sm:rounded-[2rem] border-b-[4px] sm:border-b-[8px] border-amber-700 active:border-b-0 active:translate-y-[4px] transition-all shadow-xl">EVET, TEKRAR OKUYAYIM 📖</button>
+              <button onClick={calculateFinalResult} className="bg-slate-200 text-slate-600 hover:text-slate-800 text-lg sm:text-xl font-black py-3 sm:py-5 rounded-2xl sm:rounded-[2rem] border-b-[4px] sm:border-b-[6px] border-slate-300 active:border-b-0 active:translate-y-[4px] transition-all">HAYIR, KARNEMİ GÖSTER</button>
+            </div>
+          </div>
+        )}
+
+        {view === 'evaluating' && (
+          <div className="max-w-md mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl border-8 border-indigo-300 text-center flex flex-col items-center justify-center min-h-[400px] mt-20 animate-fade-in">
+             <Loader2 className="w-16 h-16 text-indigo-500 animate-spin mb-4" />
+             <h2 className="text-2xl font-black text-indigo-600">Öğretmen Değerlendiriyor...</h2>
+             <p className="font-bold text-indigo-800 mt-2">Okumanı dinliyorum, harika iş çıkardın!</p>
+          </div>
+        )}
+
+        {view === 'result' && (
+          <div className="max-w-2xl mx-auto bg-white/95 p-8 sm:p-10 rounded-[3rem] shadow-2xl border-8 border-sky-300 mt-12 animate-fade-in text-center space-y-6 sm:space-y-8">
+             <div className="relative inline-block">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-sky-100 rounded-full flex items-center justify-center text-4xl sm:text-5xl shadow-inner border-4 border-sky-200 overflow-hidden">
+                    {readingResult.avatar?.startsWith('data:image') ? <img src={readingResult.avatar} className="w-full h-full object-cover"/> : readingResult.avatar}
+                </div>
+                <div className="absolute -bottom-2 -right-2 bg-orange-400 text-white px-3 py-1 rounded-full font-black flex items-center gap-1 text-sm sm:text-base shadow-md border-2 border-white animate-bounce"><Flame className="w-4 h-4 sm:w-5 sm:h-5" /> {readingResult.streakAchieved}</div>
+             </div>
+             <div>
+                <h2 className="text-3xl sm:text-4xl font-black text-sky-600">Tebrikler {readingResult.name.split(' ')[0]}!</h2>
+                <p className="text-lg sm:text-xl font-bold text-slate-600 mt-2 text-center">Yapay Zeka Karnen Hazır 🏆</p>
+             </div>
+             <div className="bg-gradient-to-br from-indigo-50 to-fuchsia-50 p-5 sm:p-6 rounded-2xl border-4 border-indigo-100 italic font-bold text-indigo-900 text-base sm:text-lg leading-relaxed shadow-inner">"{readingResult.aiEvaluation.geribildirim}"</div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center border-2 border-slate-50"><span className="font-bold text-slate-500">Okuma Hızı</span><span className="text-amber-500 font-black text-xl">{readingResult.wpm} wpm</span></div>
+                <div className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center border-2 border-slate-50"><span className="font-bold text-slate-500">Doğru Cevap</span><span className="text-emerald-500 font-black text-xl">{readingResult.compScore}/2</span></div>
+             </div>
+             <button onClick={()=>{resetStudent(); setView('student-setup')}} className="w-full bg-sky-500 text-white py-5 rounded-2xl text-xl sm:text-2xl font-black border-b-8 border-sky-700 shadow-lg active:scale-98 transition-transform hover:brightness-110">YENİDEN OYNA 🎮</button>
+          </div>
+        )}
+
+        {view === 'teacher-login' && (
+           <div className="max-w-md mx-auto bg-white/95 p-8 sm:p-10 rounded-[2rem] shadow-2xl border-8 border-emerald-200 mt-20 animate-fade-in">
+              <h2 className="text-3xl font-black text-emerald-600 text-center mb-8">Öğretmen Girişi</h2>
+              <form onSubmit={handleTeacherLogin} className="space-y-6 text-center">
+                 <label className="block text-emerald-800 font-bold mb-2">Yönetici Şifresi</label>
+                 <input type="password" value={teacherPassword} onChange={e=>setTeacherPassword(e.target.value)} className="w-full p-4 border-4 border-emerald-100 rounded-xl text-center text-4xl tracking-[0.8em] sm:tracking-[1em] focus:border-emerald-400 outline-none font-bold bg-white" placeholder="••••" maxLength={4} />
+                 {passwordError && <p className="text-rose-500 font-bold animate-pulse">Hatalı Şifre!</p>}
+                 <button type="submit" className="w-full bg-emerald-500 text-white py-5 rounded-xl text-2xl font-black border-b-6 border-emerald-700 active:translate-y-1 shadow-lg mt-4 transition-all hover:brightness-105">GİRİŞ YAP 🚀</button>
+                 <button type="button" onClick={()=>setView('student-setup')} className="text-slate-400 font-bold mt-4 hover:text-slate-600 transition-colors">Geri Dön</button>
+              </form>
+           </div>
+        )}
+
+        {view === 'teacher' && renderTeacherDashboard()}
       </div>
     </div>
   );
