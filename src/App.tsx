@@ -19,9 +19,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-// GÜVENLİK GÜNCELLEMESİ: Şifre Vercel kasasından çekiliyor (BAŞARIYLA ÇALIŞIYOR)
-const EXTERNAL_GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; 
-
 const PREDEFINED_AVATARS = ['🐶', '🐱', '🐰', '🦁', '🦄', '🦖', '🦋', '🚀', '🧚', '🦸‍♂️', '🧙‍♀️', '👨‍🚀'];
 const PREDEFINED_TOPICS = ['Uzay 🪐', 'Dinozor 🦖', 'Kedi 🐱', 'Araba 🏎️', 'Prenses 👑', 'Robot 🤖', 'Masal Dünyası 🧚', 'Doğa 🌳', 'Dostluk 🤝'];
 
@@ -39,7 +36,6 @@ export default function App() {
   
   const [activeHomework, setActiveHomework] = useState(null);
   const [teacherTab, setTeacherTab] = useState('stats');
-  const [selectedStudentForProgress, setSelectedStudentForProgress] = useState(null);
 
   const [hwForm, setHwForm] = useState({
     text: 'Minik arı vız vız uçtu. Renkli bir çiçek gördü. Çiçeğin üstüne konup bal özü aldı. Sonra kovanına geri döndü.',
@@ -50,7 +46,6 @@ export default function App() {
   const [studentName, setStudentName] = useState('');
   const [studentPassword, setStudentPassword] = useState('');
   const [studentAvatar, setStudentAvatar] = useState('🐶'); 
-  const fileInputRef = useRef(null);
   const [showProfileModal, setShowProfileModal] = useState(false); 
   
   const [interest, setInterest] = useState('');
@@ -66,9 +61,7 @@ export default function App() {
   const [isReadingFinished, setIsReadingFinished] = useState(false);
   
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
-  const [isGeneratingHomework, setIsGeneratingHomework] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
-  const [aiTopic, setAiTopic] = useState('');
   
   const [loginError, setLoginError] = useState(''); 
   const [micError, setMicError] = useState(''); 
@@ -80,8 +73,13 @@ export default function App() {
   const [newStudentPassword, setNewStudentPassword] = useState('1234');
   const [editingPasswords, setEditingPasswords] = useState({});
   const [teacherMsg, setTeacherMsg] = useState('');
+  
   const [actualTeacherPassword, setActualTeacherPassword] = useState('1234'); 
   const [newTeacherPasswordInput, setNewTeacherPasswordInput] = useState(''); 
+  
+  // YENİ: Vercel yerine şifreyi veritabanında tutuyoruz.
+  const [geminiKey, setGeminiKey] = useState('');
+  const [apiKeyInput, setApiKeyInput] = useState('');
   
   const [isRecording, setIsRecording] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null); 
@@ -93,15 +91,10 @@ export default function App() {
 
   useEffect(() => {
     const initAuth = async () => {
-      try {
-        await signInAnonymously(auth);
-      } catch (error) {
-        console.error("Auth error:", error);
-      }
+      try { await signInAnonymously(auth); } catch (error) { console.error(error); }
     };
     initAuth();
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
-    return () => unsubscribeAuth();
+    return onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
   }, []);
 
   useEffect(() => {
@@ -110,27 +103,28 @@ export default function App() {
     const unsubscribeStats = onSnapshot(statsRef, (snapshot) => {
       const loadedStats = [];
       snapshot.forEach((docItem) => loadedStats.push({ id: docItem.id, ...docItem.data() }));
-      loadedStats.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
-      setStats(loadedStats);
+      setStats(loadedStats.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0)));
     });
 
     const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
     const unsubscribeStudents = onSnapshot(studentsRef, (snapshot) => {
       const loadedStudents = [];
       snapshot.forEach((docItem) => loadedStudents.push({ id: docItem.id, ...docItem.data() }));
-      loadedStudents.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
-      setStudents(loadedStudents);
+      setStudents(loadedStudents.sort((a, b) => a.name.localeCompare(b.name, 'tr')));
     });
 
     const hwRef = doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current');
     const unsubscribeHw = onSnapshot(hwRef, (docSnap) => {
-      if (docSnap.exists()) setActiveHomework(docSnap.data());
-      else setActiveHomework(null);
+      if (docSnap.exists()) setActiveHomework(docSnap.data()); else setActiveHomework(null);
     });
 
+    // YENİ: Firebase'den şifrenizi çekiyoruz.
     const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin');
     const unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
-      if (docSnap.exists() && docSnap.data().password) setActualTeacherPassword(docSnap.data().password);
+      if (docSnap.exists()) {
+         if(docSnap.data().password) setActualTeacherPassword(docSnap.data().password);
+         if(docSnap.data().geminiApiKey) setGeminiKey(docSnap.data().geminiApiKey);
+      }
     });
 
     return () => { unsubscribeStats(); unsubscribeStudents(); unsubscribeHw(); unsubscribeSettings(); };
@@ -143,16 +137,12 @@ export default function App() {
       const docSnap = await getDoc(profileRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setSavedProfile(data);
-        setStudentName(data.studentName);
-        setStudentPassword(data.studentPassword);
-        setStudentAvatar(data.avatar || '🐶');
+        setSavedProfile(data); setStudentName(data.studentName); setStudentPassword(data.studentPassword);
+        setStudentAvatar(data.avatar || '🐶'); setLevel(data.level); setRememberMe(true);
         const topicsArray = (data.interest || '').split(', ').filter(t => t.trim() !== '');
         const cleanPredefined = PREDEFINED_TOPICS.map(t => t.split(' ')[0]);
         setSelectedTopics(topicsArray.filter(t => cleanPredefined.includes(t)));
         setCustomTopic(topicsArray.filter(t => !cleanPredefined.includes(t)).join(', '));
-        setLevel(data.level);
-        setRememberMe(true);
       }
     };
     fetchProfile();
@@ -164,23 +154,13 @@ export default function App() {
     if (!newStudentName || !newStudentPassword) return;
     try {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name: newStudentName.trim(), password: newStudentPassword.trim() });
-      setNewStudentName(''); setNewStudentPassword('1234');
-      showTeacherMessage(`✅ ${newStudentName} sınıfa eklendi!`);
-    } catch (e) { showTeacherMessage(`❌ Öğrenci eklenemedi.`); }
-  };
-
-  const handleUpdatePassword = async (id, newPassword) => {
-    try {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), { password: newPassword });
-      showTeacherMessage('✅ Şifre güncellendi!');
-      const newEditing = {...editingPasswords}; delete newEditing[id]; setEditingPasswords(newEditing);
-    } catch (e) { showTeacherMessage('❌ Hata oluştu.'); }
+      setNewStudentName(''); setNewStudentPassword('1234'); showTeacherMessage(`✅ ${newStudentName} sınıfa eklendi!`);
+    } catch (e) { showTeacherMessage(`❌ Hata.`); }
   };
 
   const handleDeleteStudent = async (id, name) => {
     try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id));
-      showTeacherMessage(`🗑️ ${name} silindi.`);
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id)); showTeacherMessage(`🗑️ ${name} silindi.`);
     } catch (e) { showTeacherMessage(`❌ Silinemedi.`); }
   };
 
@@ -194,9 +174,7 @@ export default function App() {
     } catch (e) { showTeacherMessage('❌ Hata oluştu.'); }
   };
 
-  const handlePublishHomework = () => {
-    showTeacherMessage('Ödev başarıyla gönderildi!');
-  };
+  const handlePublishHomework = () => { showTeacherMessage('Ödev başarıyla gönderildi!'); };
 
   const handleUpdateTeacherPassword = async () => {
     if (!newTeacherPasswordInput || newTeacherPasswordInput.length < 4) { showTeacherMessage("❌ En az 4 hane olmalı."); return; }
@@ -206,32 +184,20 @@ export default function App() {
     } catch (e) { showTeacherMessage("❌ Hata."); }
   };
 
-  const handleAvatarChange = async (ava) => {
-    setStudentAvatar(ava);
-    if (savedProfile && user) {
-      const newProfile = { ...savedProfile, avatar: ava };
-      setSavedProfile(newProfile);
-      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), newProfile, { merge: true });
-    }
-  };
-
-  const handleAvatarUpload = (e) => {
-    const file = e.target.files[0];
-    if (file && file.size <= 1000000) { 
-      const reader = new FileReader();
-      reader.onloadend = () => handleAvatarChange(reader.result); 
-      reader.readAsDataURL(file);
-    } else if (file) {
-      setLoginError("Lütfen daha küçük boyutlu bir fotoğraf seçin."); setTimeout(() => setLoginError(''), 4000);
-    }
+  // YENİ: Firebase'e Yapay Zeka Şifresini Kaydetme
+  const handleUpdateApiKey = async () => {
+    if (!apiKeyInput) { showTeacherMessage("❌ Şifre alanı boş olamaz."); return; }
+    try {
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin'), { geminiApiKey: apiKeyInput.trim() }, { merge: true });
+      setApiKeyInput(''); showTeacherMessage("✅ API Anahtarı sisteme başarıyla kaydedildi!");
+    } catch (e) { showTeacherMessage("❌ Kaydedilemedi."); }
   };
 
   const callGeminiAPI = async (topic, selectedLevel) => {
-    const apiKey = EXTERNAL_GEMINI_API_KEY; 
-    if (!apiKey) throw new Error("API Anahtarı bulunamadı.");
+    // Vercel yerine kendi panelimizden çekiyoruz
+    if (!geminiKey) throw new Error("ÖĞRETMEN UYARISI: Lütfen sağ üstteki grafiğe tıklayıp Öğretmen Paneli > Ayarlar kısmından Google API Anahtarınızı sisteme kaydedin.");
 
-    // MODEL BURADA DÜZELTİLDİ: Sizin orijinaliniz olan gemini-2.5-flash-preview-09-2025'e geri dönüldü
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
     const studentNamesStr = students.map(s => s.name.split(' ')[0]).join(', ');
     const prompt = `Sen dünyanın en iyi çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: ${topic}. 
     Seviye: ${selectedLevel}. (1: 15-25 kelime, basit. 2: 25-45 kelime, orta. 3: 45-70 kelime, zor). Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
@@ -240,29 +206,22 @@ export default function App() {
 
     const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
 
-    let delays = [1000, 2000, 4000]; 
-    for (let i = 0; i < 3; i++) {
-      try {
-        const response = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
-        if (!response.ok) throw new Error("API hatası");
-        const data = await response.json();
-        return JSON.parse(data.candidates[0].content.parts[0].text);
-      } catch (err) {
-        if (i === 2) throw err;
-        await new Promise(r => setTimeout(r, delays[i]));
-      }
+    try {
+       const response = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
+       if (!response.ok) throw new Error("API Anahtarı geçersiz veya Google tarafından engellenmiş.");
+       const data = await response.json();
+       return JSON.parse(data.candidates[0].content.parts[0].text);
+    } catch (err) {
+       throw err; 
     }
   };
 
   const evaluateReadingWithAI = async (text, timeSeconds, wpm, compScore, audioDataUrl) => {
-    const apiKey = EXTERNAL_GEMINI_API_KEY; 
-    // MODEL BURADA DÜZELTİLDİ: Sizin orijinaliniz olan gemini-2.5-flash-preview-09-2025'e geri dönüldü
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+    if (!geminiKey) return { akicilik: 5, telaffuz: 5, anlama: 5, okuma_hizi: 5, geribildirim: "Harika bir okuma yaptın! 🌟" };
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
     const parts = [{ text: `Sen şefkatli bir öğretmensin. Metin: "${text}". Hız: ${wpm} wpm. Skor: 2/${compScore}. JSON formatında 1-5 arası puanla ve şefkatli geri bildirim yaz: { "akicilik": 4, "telaffuz": 5, "anlama": 5, "okuma_hizi": 4, "geribildirim": "Harika!" }` }];
     
-    if (audioDataUrl) {
-      try { parts.push({ inlineData: { mimeType: "audio/webm", data: audioDataUrl.split(',')[1] } }); } catch (e) {}
-    }
+    if (audioDataUrl) { try { parts.push({ inlineData: { mimeType: "audio/webm", data: audioDataUrl.split(',')[1] } }); } catch (e) {} }
     const payload = { contents: [{ parts }], generationConfig: { responseMimeType: "application/json" } };
 
     try {
@@ -290,39 +249,30 @@ export default function App() {
     setSavedProfile(profileData);
   };
 
-  const clearProfile = async () => {
-    if (!user) return;
-    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'));
-    setSavedProfile(null); setRememberMe(false); setStudentName(''); setStudentPassword(''); setStudentAvatar('🐶'); setSelectedTopics([]); setCustomTopic('');
-  };
-
   const handleStartFreeReading = async () => {
     if (!validateStudent()) return;
     const combinedInterest = [...selectedTopics, customTopic].filter(t => t.trim() !== '').join(', ');
     if (!combinedInterest) { setLoginError('Lütfen bir konu seç.'); return; }
     await saveProfileDataLocally();
-    await startReadingSession(combinedInterest, level, false);
+    
+    setInterest(combinedInterest); setLevel(level); setAnswers({}); setHasRetried(false); setAudioUrl(null); setIsReadingFinished(false);
+    setIsGeneratingStory(true); setLoginError('');
+    
+    try {
+      const aiData = await callGeminiAPI(combinedInterest, level);
+      setStoryData(aiData); setView('reading-ready');
+    } catch (err) {
+      // Hata varsa ekrana açıkça yazdır.
+      setLoginError(err.message || "Bilinmeyen bir hata oluştu."); 
+      setView('student-setup');
+    } finally { setIsGeneratingStory(false); }
   };
 
   const handleStartHomework = async () => {
     if (!validateStudent() || !activeHomework) return;
     await saveProfileDataLocally();
-    await startReadingSession('Sınıf Ödevi', 'Ödev', true);
-  };
-
-  const startReadingSession = async (currentInterest, currentLevel, isHomework) => {
-    setInterest(currentInterest); setLevel(currentLevel); setAnswers({}); setHasRetried(false); setAudioUrl(null); setIsReadingFinished(false);
-    if (isHomework) {
-      setStoryData(activeHomework); setView('reading-ready');
-    } else {
-      setIsGeneratingStory(true);
-      try {
-        const aiData = await callGeminiAPI(currentInterest, currentLevel);
-        setStoryData(aiData); setView('reading-ready');
-      } catch (err) {
-        setLoginError("Hikaye oluşturulurken hata oluştu. Lütfen tekrar deneyin."); setView('student-setup');
-      } finally { setIsGeneratingStory(false); }
-    }
+    setInterest('Sınıf Ödevi'); setLevel('Ödev'); setAnswers({}); setHasRetried(false); setAudioUrl(null); setIsReadingFinished(false);
+    setStoryData(activeHomework); setView('reading-ready');
   };
 
   const beginTimer = async (withRecording = false) => {
@@ -390,16 +340,8 @@ export default function App() {
     try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'stats'), newResult); } catch (e) {}
   };
 
-  const playAudio = (text) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'tr-TR'; window.speechSynthesis.speak(utterance);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-fuchsia-200 font-sans flex flex-col relative pt-8 pb-12">
-      {/* Profil Düğmesi */}
       {!['teacher-login', 'teacher'].includes(view) && (
         <button onClick={() => setShowProfileModal(true)} className="absolute top-4 left-4 flex items-center gap-3 bg-white/95 p-2 pr-6 rounded-full shadow-xl border-4 border-white z-50">
            <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-sky-100 text-2xl">
@@ -409,7 +351,6 @@ export default function App() {
         </button>
       )}
 
-      {/* Ana İçerik */}
       <div className="flex-1 w-full px-4">
         
         {view === 'student-setup' && !isGeneratingStory && (
@@ -424,7 +365,7 @@ export default function App() {
                      {students.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                    </select>
                    <input type="password" value={studentPassword} onChange={e=>setStudentPassword(e.target.value)} className="w-full p-4 border-4 border-sky-200 rounded-xl text-center text-2xl tracking-[1em] outline-none font-bold" placeholder="••••" maxLength={4} />
-                   {loginError && <p className="text-rose-500 font-bold mt-3">{loginError}</p>}
+                   {loginError && <p className="text-rose-600 bg-rose-50 p-3 rounded-lg font-black mt-3">{loginError}</p>}
                 </div>
 
                 {activeHomework && (
@@ -520,7 +461,7 @@ export default function App() {
                 <div className="bg-white p-4 rounded-xl shadow-sm font-bold"><span className="text-amber-500 text-2xl block">{readingResult.wpm}</span> Hız (wpm)</div>
                 <div className="bg-white p-4 rounded-xl shadow-sm font-bold"><span className="text-emerald-500 text-2xl block">{readingResult.compScore}/2</span> Doğru</div>
              </div>
-             <button onClick={()=>{resetStudent(); setView('student-setup')}} className="w-full bg-sky-500 text-white py-5 rounded-2xl text-2xl font-black">YENİDEN OYNA 🎮</button>
+             <button onClick={()=>{setView('student-setup')}} className="w-full bg-sky-500 text-white py-5 rounded-2xl text-2xl font-black">YENİDEN OYNA 🎮</button>
           </div>
         )}
 
@@ -590,9 +531,21 @@ export default function App() {
             )}
 
             {teacherTab === 'settings' && (
-              <div className="flex gap-4">
-                 <input type="text" placeholder="Yeni Yönetici Şifresi" value={newTeacherPasswordInput} onChange={e=>setNewTeacherPasswordInput(e.target.value)} className="flex-1 p-4 border-4 rounded-xl font-bold" />
-                 <button onClick={handleUpdateTeacherPassword} className="bg-emerald-500 text-white font-bold px-8 rounded-xl">Şifreyi Güncelle</button>
+              <div className="space-y-6">
+                 <div className="flex gap-4">
+                    <input type="text" placeholder="Yeni Yönetici Şifresi" value={newTeacherPasswordInput} onChange={e=>setNewTeacherPasswordInput(e.target.value)} className="flex-1 p-4 border-4 rounded-xl font-bold" />
+                    <button onClick={handleUpdateTeacherPassword} className="bg-emerald-500 text-white font-bold px-8 rounded-xl">Şifreyi Güncelle</button>
+                 </div>
+                 
+                 {/* YENİ ŞİFRE EKLEME ALANI */}
+                 <div className="bg-sky-50 p-6 rounded-2xl border-4 border-sky-100 mt-8">
+                    <h3 className="text-xl font-black text-sky-800 mb-4">Google Yapay Zeka (API) Şifresi</h3>
+                    <div className="flex gap-4 mb-4">
+                       <input type="text" placeholder="AIza... ile başlayan şifrenizi buraya yapıştırın" value={apiKeyInput} onChange={e=>setApiKeyInput(e.target.value)} className="flex-1 p-4 border-4 rounded-xl font-bold" />
+                       <button onClick={handleUpdateApiKey} className="bg-sky-500 text-white font-bold px-8 rounded-xl">Sisteme Kaydet</button>
+                    </div>
+                    {geminiKey ? <p className="text-emerald-600 font-bold">✅ Şifre sistemde kayıtlı, masal motoru hazır!</p> : <p className="text-rose-500 font-bold">❌ Henüz şifre kaydedilmedi, sistem masal üretemez!</p>}
+                 </div>
               </div>
             )}
             {teacherMsg && <p className="mt-4 font-bold text-emerald-600">{teacherMsg}</p>}
