@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, BookOpen, Star, Clock, Trophy, ArrowLeft, BarChart3, Rocket, Heart, Zap, Volume2, Mic, Send, FileText, Check, Loader2, Sparkles, Settings, Camera, TrendingUp, Award, X, Flame, Users, Search } from 'lucide-react';
+import { User, BookOpen, Star, Clock, Trophy, ArrowLeft, BarChart3, Rocket, Heart, Zap, Volume2, Mic, Send, FileText, Check, Loader2, Sparkles, Settings, Camera, TrendingUp, Award, X, Flame, Users, Search, Eye } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -41,15 +41,13 @@ export default function App() {
   const [selectedStudentForProgress, setSelectedStudentForProgress] = useState(null);
 
   const [hwForm, setHwForm] = useState({
-    text: '',
-    q1: '', q1o1: '', q1o2: '', q1o3: '', q1c: 0,
+    text: '', q1: '', q1o1: '', q1o2: '', q1o3: '', q1c: 0,
     q2: '', q2o1: '', q2o2: '', q2o3: '', q2c: 1
   });
 
   const [studentName, setStudentName] = useState('');
   const [studentPassword, setStudentPassword] = useState('');
   const [studentAvatar, setStudentAvatar] = useState('🐶'); 
-  const fileInputRef = useRef(null);
   const [showProfileModal, setShowProfileModal] = useState(false); 
   
   const [interest, setInterest] = useState('');
@@ -93,16 +91,20 @@ export default function App() {
   const [passwordError, setPasswordError] = useState(false);
 
   const [showHeceler, setShowHeceler] = useState(false);
-  // YENİ: Hazine Avı İçin Bulunan Kelimeler
   const [foundWords, setFoundWords] = useState([]);
+
+  // YENİ: Göz Jimnastiği State'leri
+  const [eyeGymSpeed, setEyeGymSpeed] = useState(600); // Tavşan hızı varsayılan
+  const [eyeGymWords, setEyeGymWords] = useState([]);
+  const [eyeGymIndex, setEyeGymIndex] = useState(-1);
+  const [isGeneratingEyeGym, setIsGeneratingEyeGym] = useState(false);
 
   useEffect(() => {
     const initAuth = async () => {
-      try { await signInAnonymously(auth); } catch (error) { console.error("Auth error:", error); }
+      try { await signInAnonymously(auth); } catch (error) { console.error(error); }
     };
     initAuth();
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
-    return () => unsubscribeAuth();
+    return onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
   }, []);
 
   useEffect(() => {
@@ -111,16 +113,14 @@ export default function App() {
     const unsubscribeStats = onSnapshot(statsRef, (snapshot) => {
       const loadedStats = [];
       snapshot.forEach((docItem) => loadedStats.push({ id: docItem.id, ...docItem.data() }));
-      loadedStats.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
-      setStats(loadedStats);
+      setStats(loadedStats.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0)));
     });
 
     const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
     const unsubscribeStudents = onSnapshot(studentsRef, (snapshot) => {
       const loadedStudents = [];
       snapshot.forEach((docItem) => loadedStudents.push({ id: docItem.id, ...docItem.data() }));
-      loadedStudents.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
-      setStudents(loadedStudents);
+      setStudents(loadedStudents.sort((a, b) => a.name.localeCompare(b.name, 'tr')));
     });
 
     const hwRef = doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current');
@@ -144,20 +144,26 @@ export default function App() {
       const docSnap = await getDoc(profileRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setSavedProfile(data);
-        setStudentName(data.studentName);
-        setStudentPassword(data.studentPassword);
-        setStudentAvatar(data.avatar || '🐶');
+        setSavedProfile(data); setStudentName(data.studentName); setStudentPassword(data.studentPassword);
+        setStudentAvatar(data.avatar || '🐶'); setLevel(data.level); setRememberMe(true);
         const topicsArray = (data.interest || '').split(', ').filter(t => t.trim() !== '');
         const cleanPredefined = PREDEFINED_TOPICS.map(t => t.split(' ')[0]);
         setSelectedTopics(topicsArray.filter(t => cleanPredefined.includes(t)));
         setCustomTopic(topicsArray.filter(t => !cleanPredefined.includes(t)).join(', '));
-        setLevel(data.level);
-        setRememberMe(true);
       }
     };
     fetchProfile();
   }, [user]);
+
+  // YENİ: Göz Jimnastiği Zamanlayıcısı
+  useEffect(() => {
+    if (view === 'eye-gym-active' && eyeGymWords.length > 0 && eyeGymIndex < eyeGymWords.length) {
+      const timer = setTimeout(() => {
+        setEyeGymIndex(prev => prev + 1);
+      }, eyeGymSpeed);
+      return () => clearTimeout(timer);
+    }
+  }, [view, eyeGymWords, eyeGymIndex, eyeGymSpeed]);
 
   const showTeacherMessage = (msg) => { setTeacherMsg(msg); setTimeout(() => setTeacherMsg(''), 4000); };
 
@@ -165,8 +171,7 @@ export default function App() {
     if (!newStudentName || !newStudentPassword) return;
     try {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name: newStudentName.trim(), password: newStudentPassword.trim() });
-      setNewStudentName(''); setNewStudentPassword('1234');
-      showTeacherMessage(`✅ ${newStudentName} sınıfa eklendi!`);
+      setNewStudentName(''); setNewStudentPassword('1234'); showTeacherMessage(`✅ ${newStudentName} sınıfa eklendi!`);
     } catch (e) { showTeacherMessage(`❌ Öğrenci eklenemedi.`); }
   };
 
@@ -180,37 +185,19 @@ export default function App() {
 
   const handleDeleteStudent = async (id, name) => {
     try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id));
-      showTeacherMessage(`🗑️ ${name} silindi.`);
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id)); showTeacherMessage(`🗑️ ${name} silindi.`);
     } catch (e) { showTeacherMessage(`❌ Silinemedi.`); }
   };
 
   const handleDeleteStat = async (id) => {
     if (window.confirm('Bu okuma kaydını silmek istediğinize emin misiniz?')) {
-      try {
-        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stats', id));
-        showTeacherMessage('🗑️ Kayıt başarıyla silindi.');
-      } catch (e) {
-        showTeacherMessage('❌ Kayıt silinemedi.');
-      }
+      try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stats', id)); showTeacherMessage('🗑️ Kayıt başarıyla silindi.'); } 
+      catch (e) { showTeacherMessage('❌ Kayıt silinemedi.'); }
     }
-  };
-
-  const handleLoadDefaultClass = async () => {
-    showTeacherMessage('⏳ Yükleniyor...');
-    try {
-      for (const name of DEFAULT_CLASS_LIST) {
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name, password: '1234' });
-      }
-      showTeacherMessage('✅ 1/A Listesi yüklendi!');
-    } catch (e) { showTeacherMessage('❌ Hata oluştu.'); }
   };
 
   const handlePublishHomework = async () => {
-    if (!hwForm.text || !hwForm.q1 || !hwForm.q2) {
-      showTeacherMessage('⚠️ Lütfen metni ve soruları eksiksiz doldurun.');
-      return;
-    }
+    if (!hwForm.text || !hwForm.q1 || !hwForm.q2) { showTeacherMessage('⚠️ Lütfen metni ve soruları eksiksiz doldurun.'); return; }
     showTeacherMessage('⏳ Ödev gönderiliyor...');
     try {
       const homeworkData = {
@@ -223,9 +210,7 @@ export default function App() {
       };
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current'), homeworkData);
       showTeacherMessage('✅ Ödev sınıfa başarıyla gönderildi!');
-    } catch (e) {
-      showTeacherMessage('❌ Ödev gönderilemedi.');
-    }
+    } catch (e) { showTeacherMessage('❌ Ödev gönderilemedi.'); }
   };
 
   const handleUpdateTeacherPassword = async () => {
@@ -239,49 +224,45 @@ export default function App() {
   const handleAvatarChange = async (ava) => {
     setStudentAvatar(ava);
     if (savedProfile && user) {
-      const newProfile = { ...savedProfile, avatar: ava };
-      setSavedProfile(newProfile);
+      const newProfile = { ...savedProfile, avatar: ava }; setSavedProfile(newProfile);
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), newProfile, { merge: true });
     }
   };
 
-  const callGeminiAPI = async (topic, selectedLevel) => {
+  const callGeminiAPI = async (topic, selectedLevel, isEyeGym = false) => {
     const apiKey = EXTERNAL_GEMINI_API_KEY; 
     if (!apiKey) throw new Error("API Anahtarı bulunamadı.");
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const studentNamesStr = students.map(s => s.name.split(' ')[0]).join(', ');
     
-    let levelInstructions = "";
-    if (selectedLevel === '1') {
-      levelInstructions = "KOLAY SEVİYE: Kesinlikle 30 ile 50 kelime arasında yaz. Cümle yapısı kısa ve çok basit olsun (yalnızca Özne + Yüklem). Odak noktan: Kelime tanıma ve temel yargıyı anlama.";
-    } else if (selectedLevel === '2') {
-      levelInstructions = "ORTA SEVİYE: Kesinlikle 50 ile 90 kelime arasında yaz. Cümle yapısında birleşik cümleler ve sıfat tamlamaları kullan. Odak noktan: Olay örgüsünü takip etme.";
-    } else if (selectedLevel === '3') {
-      levelInstructions = "ZOR SEVİYE: Kesinlikle 90 ile 140 kelime arasında yaz. Neden-sonuç ilişkisi içeren paragraflar kurgula. Odak noktan: Çıkarım yapma ve detayları yakalama.";
+    let payload;
+
+    if (isEyeGym) {
+      // GÖZ JİMNASTİĞİ İÇİN ÖZEL PROMPT
+      let wordsCount = selectedLevel === '1' ? "20-30" : selectedLevel === '2' ? "30-50" : "50-80";
+      const prompt = `Sen bir hızlı okuma eğitmenisin. Konu: "${topic}". İçinde zor noktalama işaretleri olmayan, çocukların göz egzersizi yapması için akıcı, tek parça ve tam ${wordsCount} kelimelik bir metin yaz. Sadece düz metin ver.
+      YALNIZCA JSON formatında dön: { "text": "Metin buraya..." }`;
+      payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
+    } else {
+      // NORMAL HİKAYE PROMPTU
+      let levelInstructions = selectedLevel === '1' ? "KOLAY SEVİYE: Kesinlikle 30 ile 50 kelime arasında yaz." : selectedLevel === '2' ? "ORTA SEVİYE: Kesinlikle 50 ile 90 kelime arasında yaz." : "ZOR SEVİYE: Kesinlikle 90 ile 140 kelime arasında yaz.";
+      
+      const prompt = `Sen Türkçe dilini kusursuz, son derece doğal ve insansı bir şekilde kullanan ödüllü bir çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: "${topic}". 
+      Şu kurallara SIKI SIKIYA UYMALISIN:
+      ${levelInstructions}
+      EDEBI KALİTE: Cümleler birbirini kusursuzca tamamlamalı, sürükleyici ve doğal bir Türkçe ile yazılmalıdır.
+      HAZİNE AVI: Hikayenin içine belli bir kategoriye ait (örneğin 3 farklı renk, 3 farklı hayvan ismi veya 3 meyve) gizli kelimeler yerleştir.
+      Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
+      
+      YALNIZCA JSON formatında cevap ver (targetWords içine kelimenin metinde geçen TAMP TAMINA ek almış halini küçük harfle yaz):
+      { 
+        "text": "Hikaye metni buraya...", 
+        "questions": [ { "id": 1, "q": "Soru 1?", "options": ["A", "B", "C"], "correct": 0 }, { "id": 2, "q": "Soru 2?", "options": ["A", "B", "C"], "correct": 1 } ],
+        "treasureHunt": { "task": "Metindeki gizli hayvanları bulup tıkla!", "targetWords": ["kedi", "kuş", "köpek"] }
+      }`;
+      payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
     }
-
-    const prompt = `Sen Türkçe dilini kusursuz, son derece doğal ve insansı bir şekilde kullanan ödüllü bir çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: "${topic}". 
-    Şu kurallara SIKI SIKIYA UYMALISIN:
-    ${levelInstructions}
-    EDEBI KALİTE: Metin kesinlikle robotik durmamalıdır. Cümleler birbirini kusursuzca tamamlamalı, sürükleyici, bağlantılı, merak uyandıran ve çok doğal bir Türkçe ile yazılmalıdır.
-    HAZİNE AVI (METİN MADENCİLİĞİ): Hikayenin içine belli bir kategoriye ait (örneğin 3 farklı renk, 3 farklı hayvan ismi veya 3 meyve) gizli kelimeler yerleştir.
-    Kelime sayısına KESİNLİKLE uy. Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
-    
-    YALNIZCA aşağıdaki JSON formatında cevap ver (dışına hiçbir şey yazma, targetWords listesinde kelimenin metinde geçen TAMP TAMINA ek almış halini yaz):
-    { 
-      "text": "Hikaye metni buraya...", 
-      "questions": [ 
-         { "id": 1, "q": "Soru 1?", "options": ["A", "B", "C"], "correct": 0 }, 
-         { "id": 2, "q": "Soru 2?", "options": ["A", "B", "C"], "correct": 1 } 
-      ],
-      "treasureHunt": {
-         "task": "Metindeki gizli renkleri bulup tıkla!",
-         "targetWords": ["kırmızı", "mavi", "sarı"]
-      }
-    }`;
-
-    const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
 
     let delays = [1000, 2000, 4000]; 
     for (let i = 0; i < 3; i++) {
@@ -299,8 +280,7 @@ export default function App() {
 
   const handleGenerateHomeworkAI = async () => {
     if (!hwTopic) { showTeacherMessage("⚠️ Lütfen bir ödev konusu yazın."); return; }
-    setIsGeneratingHw(true);
-    showTeacherMessage("⏳ Yapay zeka ödevi hazırlıyor, lütfen bekleyin...");
+    setIsGeneratingHw(true); showTeacherMessage("⏳ Yapay zeka ödevi hazırlıyor, lütfen bekleyin...");
     try {
       const aiData = await callGeminiAPI(hwTopic, hwLevel);
       setHwForm({
@@ -310,29 +290,21 @@ export default function App() {
       });
       showTeacherMessage("✨ Ödev başarıyla oluşturuldu! Düzenleyip sınıfa gönderebilirsiniz.");
     } catch (err) {
-      showTeacherMessage("❌ Sunucu şuan çok yoğun daha sonra tekrar deneyiniz");
-    } finally {
-      setIsGeneratingHw(false);
-    }
+      showTeacherMessage("❌ Sunucu şuan çok yoğun daha sonra tekrar deneyiniz.");
+    } finally { setIsGeneratingHw(false); }
   };
 
   const evaluateReadingWithAI = async (text, timeSeconds, wpm, compScore, audioDataUrl) => {
     const apiKey = EXTERNAL_GEMINI_API_KEY; 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const parts = [{ text: `Sen şefkatli bir öğretmensin. Metin: "${text}". Hız: ${wpm} wpm. Skor: 2/${compScore}. JSON formatında 1-5 arası puanla ve şefkatli geri bildirim yaz: { "akicilik": 4, "telaffuz": 5, "anlama": 5, "okuma_hizi": 4, "geribildirim": "Harika!" }` }];
-    
-    if (audioDataUrl) {
-      try { parts.push({ inlineData: { mimeType: "audio/webm", data: audioDataUrl.split(',')[1] } }); } catch (e) {}
-    }
+    if (audioDataUrl) { try { parts.push({ inlineData: { mimeType: "audio/webm", data: audioDataUrl.split(',')[1] } }); } catch (e) {} }
     const payload = { contents: [{ parts }], generationConfig: { responseMimeType: "application/json" } };
-
     try {
       const response = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
       const data = await response.json();
       return JSON.parse(data.candidates[0].content.parts[0].text);
-    } catch (err) {
-      return { akicilik: 5, telaffuz: 5, anlama: 5, okuma_hizi: 5, geribildirim: "Harika bir okuma yaptın! 🌟" };
-    }
+    } catch (err) { return { akicilik: 5, telaffuz: 5, anlama: 5, okuma_hizi: 5, geribildirim: "Harika bir okuma yaptın! 🌟" }; }
   };
 
   const validateStudent = () => {
@@ -365,6 +337,20 @@ export default function App() {
     await startReadingSession('Sınıf Ödevi', 'Ödev', true);
   };
 
+  const handleStartEyeGym = async () => {
+    if (!validateStudent()) return;
+    const combinedInterest = [...selectedTopics, customTopic].filter(t => t.trim() !== '').join(', ');
+    if (!combinedInterest) { setLoginError('Lütfen bir konu seç.'); return; }
+    setIsGeneratingEyeGym(true); setLoginError('');
+    try {
+      const aiData = await callGeminiAPI(combinedInterest, level, true);
+      const words = aiData.text.split(/\s+/).filter(w => w.trim().length > 0);
+      setEyeGymWords(words); setEyeGymIndex(0); setView('eye-gym-active');
+    } catch (err) {
+      setLoginError("Sunucu şuan çok yoğun daha sonra tekrar deneyiniz.");
+    } finally { setIsGeneratingEyeGym(false); }
+  };
+
   const startReadingSession = async (currentInterest, currentLevel, isHomework) => {
     setInterest(currentInterest); setLevel(currentLevel); setAnswers({}); setHasRetried(false); setAudioUrl(null); setIsReadingFinished(false); setShowHeceler(false); setFoundWords([]);
     if (isHomework) {
@@ -375,8 +361,7 @@ export default function App() {
         const aiData = await callGeminiAPI(currentInterest, currentLevel);
         setStoryData(aiData); setView('reading-ready');
       } catch (err) {
-        setLoginError("Sunucu şuan çok yoğun daha sonra tekrar deneyiniz"); 
-        setView('student-setup');
+        setLoginError("Sunucu şuan çok yoğun daha sonra tekrar deneyiniz."); setView('student-setup');
       } finally { setIsGeneratingStory(false); }
     }
   };
@@ -385,14 +370,12 @@ export default function App() {
     if (withRecording) {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setMicError("Cihazınız ses kaydını desteklemiyor. Sessiz okumaya geçiliyor...");
-        setTimeout(() => { setMicError(''); setStartTime(Date.now()); setView('reading-active'); }, 3000);
-        return;
+        setTimeout(() => { setMicError(''); setStartTime(Date.now()); setView('reading-active'); }, 3000); return;
       }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
-        mediaRecorderRef.current = mediaRecorder;
-        audioChunksRef.current = [];
+        mediaRecorderRef.current = mediaRecorder; audioChunksRef.current = [];
         mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) audioChunksRef.current.push(event.data); };
         mediaRecorder.onstop = () => {
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
@@ -402,8 +385,7 @@ export default function App() {
         mediaRecorder.start(); setIsRecording(true);
       } catch (err) {
         setMicError("Mikrofon izni alınamadı. Sessiz okumaya geçiliyor...");
-        setTimeout(() => { setMicError(''); setStartTime(Date.now()); setView('reading-active'); }, 3000);
-        return;
+        setTimeout(() => { setMicError(''); setStartTime(Date.now()); setView('reading-active'); }, 3000); return;
       }
     }
     setStartTime(Date.now()); setView('reading-active');
@@ -414,12 +396,11 @@ export default function App() {
     const timeSpentSeconds = (Date.now() - startTime) / 1000;
     const wordCount = storyData.text.split(/\s+/).length;
     setTempStats({ words: wordCount, timeSeconds: Math.round(timeSpentSeconds), wpm: Math.round((wordCount / timeSpentSeconds) * 60) });
-    setIsReadingFinished(true);
+    setIsReadingFinished(true); 
   };
 
   const checkAnswers = () => {
-    let correctCount = 0;
-    storyData.questions.forEach(q => { if (answers[q.id] === q.correct) correctCount++; });
+    let correctCount = 0; storyData.questions.forEach(q => { if (answers[q.id] === q.correct) correctCount++; });
     if (correctCount < 2 && !hasRetried) { setHasRetried(true); setView('reading-active'); } else calculateFinalResult();
   };
 
@@ -441,76 +422,58 @@ export default function App() {
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), newProfile, { merge: true });
     }
 
-    // Rozet Kontrolü
     const earnedBadge = (storyData.treasureHunt && foundWords.length === storyData.treasureHunt.targetWords.length) ? '🕵️‍♂️' : '';
-
     const newResult = { name: studentName, avatar: studentAvatar, interest: interest, level: level, words: tempStats.words, timeSeconds: tempStats.timeSeconds, wpm: tempStats.wpm, compScore: correctCount, badge: earnedBadge, audioUrl: audioUrl || null, aiEvaluation, streakAchieved: currentStreak, date: new Date().toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }), timestamp: serverTimestamp() };
     setReadingResult(newResult); setIsEvaluating(false); setView('result');
     try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'stats'), newResult); } catch (e) {}
   };
 
-  // YENİ: Hem Hecematik Hem Hazine Avı İçeren Metin Çizer
   const renderStoryText = () => {
     if (!storyData || !storyData.text) return null;
-    
     const targetWordsLower = (storyData.treasureHunt?.targetWords || []).map(w => w.toLowerCase('tr-TR'));
 
     return storyData.text.split(/(\s+)/).map((wordOrSpace, idx) => {
        if (!wordOrSpace.trim()) return <span key={idx}>{wordOrSpace}</span>; 
-       
        const match = wordOrSpace.match(/^([^a-zA-ZğüşıöçĞÜŞİÖÇ]*)([a-zA-ZğüşıöçĞÜŞİÖÇ]+)([^a-zA-ZğüşıöçĞÜŞİÖÇ]*)$/);
        if (!match) return <span key={idx}>{wordOrSpace}</span>; 
        
-       const before = match[1];
-       const cleanWord = match[2];
-       const after = match[3];
+       const before = match[1]; const cleanWord = match[2]; const after = match[3];
        const lowerCleanWord = cleanWord.toLowerCase('tr-TR');
        
        const isTarget = targetWordsLower.includes(lowerCleanWord);
        const isFound = foundWords.includes(lowerCleanWord);
 
+       // YENİ MANTIK: Tıklama sadece okuma bitince (isReadingFinished = true) çalışır.
        const handleWordClick = () => {
-         if (isTarget && !isFound) {
-            setFoundWords(prev => [...prev, lowerCleanWord]);
-         }
+         if (!isReadingFinished) return; 
+         if (isTarget && !isFound) { setFoundWords(prev => [...prev, lowerCleanWord]); }
        };
 
-       const wordContainerClass = isFound 
-          ? "bg-amber-300 text-amber-900 rounded-lg px-1 transition-all duration-300 scale-110 inline-block shadow-sm" 
-          : (storyData.treasureHunt ? "cursor-pointer hover:bg-sky-100 transition-all rounded-lg px-1 inline-block" : "");
+       let wordContainerClass = "";
+       if (isReadingFinished && storyData.treasureHunt) {
+          if (isFound) {
+             wordContainerClass = "bg-amber-300 text-amber-900 rounded-lg px-1 transition-all duration-300 scale-110 inline-block shadow-sm";
+          } else {
+             wordContainerClass = "cursor-pointer hover:bg-sky-100 transition-all rounded-lg px-1 inline-block";
+          }
+       }
 
        let content = <span>{cleanWord}</span>;
-       
        if (showHeceler) {
-         const sesliler = 'aeıioöuüAEIİOÖUÜ';
-         let heceler = [];
-         let kelimeKopya = cleanWord;
+         const sesliler = 'aeıioöuüAEIİOÖUÜ'; let heceler = []; let kelimeKopya = cleanWord;
          while (kelimeKopya.length > 0) {
            let sesliIndex = -1;
-           for (let i = kelimeKopya.length - 1; i >= 0; i--) {
-             if (sesliler.includes(kelimeKopya[i])) { sesliIndex = i; break; }
-           }
+           for (let i = kelimeKopya.length - 1; i >= 0; i--) { if (sesliler.includes(kelimeKopya[i])) { sesliIndex = i; break; } }
            if (sesliIndex === -1) {
-             if (heceler.length > 0) heceler[0] = kelimeKopya + heceler[0];
-             else heceler.unshift(kelimeKopya);
+             if (heceler.length > 0) heceler[0] = kelimeKopya + heceler[0]; else heceler.unshift(kelimeKopya);
              break;
            }
            let heceBaslangici = sesliIndex;
-           if (sesliIndex > 0 && !sesliler.includes(kelimeKopya[sesliIndex - 1])) {
-             heceBaslangici = sesliIndex - 1;
-           }
-           heceler.unshift(kelimeKopya.substring(heceBaslangici));
-           kelimeKopya = kelimeKopya.substring(0, heceBaslangici);
+           if (sesliIndex > 0 && !sesliler.includes(kelimeKopya[sesliIndex - 1])) { heceBaslangici = sesliIndex - 1; }
+           heceler.unshift(kelimeKopya.substring(heceBaslangici)); kelimeKopya = kelimeKopya.substring(0, heceBaslangici);
          }
-         content = (
-           <>
-             {heceler.map((hece, hIdx) => (
-               <span key={hIdx} className={hIdx % 2 === 0 ? "text-rose-500" : "text-slate-800"}>{hece}</span>
-             ))}
-           </>
-         );
+         content = <>{heceler.map((hece, hIdx) => (<span key={hIdx} className={hIdx % 2 === 0 ? "text-rose-500" : "text-slate-800"}>{hece}</span>))}</>;
        }
-       
        return (
          <span key={idx} onClick={handleWordClick} className={wordContainerClass}>
            {before}{content}{after}
@@ -532,7 +495,7 @@ export default function App() {
 
       <div className="flex-1 w-full px-4">
         
-        {view === 'student-setup' && !isGeneratingStory && (
+        {view === 'student-setup' && !isGeneratingStory && !isGeneratingEyeGym && (
           <div className="max-w-xl mx-auto bg-white/95 p-8 rounded-[3rem] shadow-2xl border-8 border-sky-300 mt-20 relative text-center">
              <button onClick={()=>setView('teacher-login')} className="absolute top-4 right-4 w-12 h-12 bg-emerald-400 rounded-full flex items-center justify-center text-white shadow-lg z-10"><BarChart3 /></button>
              
@@ -589,15 +552,62 @@ export default function App() {
                   <span className="text-sky-800 font-black">Beni bu cihazda hatırla</span>
                 </div>
 
-                <button onClick={handleStartFreeReading} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-2xl font-black border-b-8 border-sky-700 shadow-xl">HİKAYEMİ OLUŞTUR ✨</button>
+                <div className="space-y-4">
+                   <button onClick={handleStartFreeReading} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-2xl font-black border-b-8 border-sky-700 shadow-xl">HİKAYEMİ OLUŞTUR ✨</button>
+                   {/* YENİ: Göz Jimnastiği Odası Girişi */}
+                   <button onClick={() => { setLoginError(''); setView('eye-gym-setup'); }} className="w-full bg-indigo-500 text-white py-4 rounded-2xl text-xl font-black border-b-8 border-indigo-700 shadow-xl flex items-center justify-center gap-3"><Eye /> GÖZ JİMNASTİĞİ YAP</button>
+                </div>
              </div>
           </div>
         )}
 
-        {isGeneratingStory && (
+        {/* YENİ: Göz Jimnastiği Hazırlık Ekranı */}
+        {view === 'eye-gym-setup' && !isGeneratingEyeGym && (
+           <div className="max-w-xl mx-auto bg-white/95 p-8 rounded-[3rem] shadow-2xl border-8 border-indigo-300 mt-20 text-center">
+              <h2 className="text-4xl font-black text-indigo-600 mb-8 flex items-center justify-center gap-3"><Eye /> Göz Jimnastiği</h2>
+              <div className="bg-indigo-50 p-6 rounded-2xl border-4 border-indigo-100 text-left space-y-6">
+                 <div>
+                    <label className="block text-lg font-black text-indigo-800 mb-2">Hızını Seç:</label>
+                    <div className="grid grid-cols-3 gap-2">
+                       <button onClick={() => setEyeGymSpeed(1000)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 1000 ? 'bg-emerald-400 text-emerald-900' : 'bg-white text-indigo-700'}`}>
+                         <span className="text-3xl">🐢</span> Yavaş
+                       </button>
+                       <button onClick={() => setEyeGymSpeed(600)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 600 ? 'bg-amber-400 text-amber-900' : 'bg-white text-indigo-700'}`}>
+                         <span className="text-3xl">🐇</span> Normal
+                       </button>
+                       <button onClick={() => setEyeGymSpeed(300)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 300 ? 'bg-rose-400 text-rose-900' : 'bg-white text-indigo-700'}`}>
+                         <span className="text-3xl">🐆</span> Hızlı
+                       </button>
+                    </div>
+                 </div>
+                 {loginError && <p className="text-rose-500 font-bold mt-3 text-center">{loginError}</p>}
+              </div>
+              <button onClick={handleStartEyeGym} className="w-full bg-indigo-500 text-white py-6 rounded-2xl text-2xl font-black border-b-8 border-indigo-700 shadow-xl mt-8">EGZERSİZE BAŞLA 🚀</button>
+              <button onClick={() => setView('student-setup')} className="mt-6 text-indigo-400 font-bold">Vazgeç ve Geri Dön</button>
+           </div>
+        )}
+
+        {(isGeneratingStory || isGeneratingEyeGym) && (
           <div className="max-w-md mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl mt-20 text-center">
              <Loader2 className="w-20 h-20 text-sky-500 animate-spin mx-auto mb-6" />
-             <h2 className="text-3xl font-black text-sky-600">Metin Yazılıyor...</h2>
+             <h2 className="text-3xl font-black text-sky-600">Hazırlanıyor...</h2>
+          </div>
+        )}
+
+        {/* YENİ: Göz Jimnastiği Aktif Ekranı */}
+        {view === 'eye-gym-active' && (
+          <div className="max-w-4xl mx-auto mt-20 text-center flex flex-col items-center justify-center min-h-[50vh]">
+             {eyeGymIndex < eyeGymWords.length ? (
+               <div className="bg-white p-12 md:p-20 rounded-[3rem] shadow-2xl border-8 border-indigo-200 w-full flex items-center justify-center h-64 md:h-96">
+                  <span className="text-5xl md:text-8xl font-black text-indigo-700 tracking-tight transition-all duration-100">{eyeGymWords[eyeGymIndex]}</span>
+               </div>
+             ) : (
+               <div className="bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-emerald-300 w-full space-y-6">
+                  <h2 className="text-4xl font-black text-emerald-600">Harika İş Çıkardın! 🎉</h2>
+                  <p className="text-2xl font-bold text-emerald-800">Göz kasların artık çok daha güçlü.</p>
+                  <button onClick={() => setView('student-setup')} className="bg-emerald-500 text-white px-8 py-4 rounded-2xl text-2xl font-black shadow-lg">Ana Menüye Dön</button>
+               </div>
+             )}
           </div>
         )}
 
@@ -614,24 +624,6 @@ export default function App() {
 
         {view === 'reading-active' && (
           <div className="max-w-4xl mx-auto mt-12 space-y-8">
-             {/* YENİ: Hazine Avı Görev Kartı */}
-             {storyData?.treasureHunt && (
-               <div className="bg-amber-100 border-4 border-amber-300 p-4 rounded-3xl mb-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                     <div className="bg-white w-14 h-14 rounded-full flex items-center justify-center shadow-inner">
-                        <Search className="text-amber-500 w-8 h-8" />
-                     </div>
-                     <div>
-                        <h4 className="font-black text-amber-900 text-xl">Hazine Avı Görevi!</h4>
-                        <p className="font-bold text-amber-700 text-lg">{storyData.treasureHunt.task}</p>
-                     </div>
-                  </div>
-                  <div className="bg-white px-6 py-3 rounded-2xl border-4 border-amber-200 font-black text-amber-600 text-3xl">
-                     {foundWords.length} / {storyData.treasureHunt.targetWords.length}
-                  </div>
-               </div>
-             )}
-
              <div className="bg-white p-6 md:p-10 rounded-[3rem] shadow-2xl border-8 border-sky-200 relative mt-8">
                 <div className="absolute -top-6 right-6">
                     <button onClick={() => setShowHeceler(!showHeceler)} className={`px-4 py-2 md:px-6 md:py-3 rounded-full font-black flex items-center gap-2 shadow-lg transition-colors ${showHeceler ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
@@ -644,28 +636,43 @@ export default function App() {
                 </p>
              </div>
 
-             {storyData?.treasureHunt && foundWords.length === storyData.treasureHunt.targetWords.length && foundWords.length > 0 && (
-                <div className="bg-emerald-100 text-emerald-800 p-4 rounded-2xl border-4 border-emerald-300 font-black text-center text-2xl animate-bounce shadow-lg">
-                  Tebrikler! Dedektif Rozetini Kazandın! 🕵️‍♂️✨
-                </div>
-             )}
-
              {!isReadingFinished && <button onClick={finishReading} className="w-full bg-emerald-500 text-white py-6 rounded-full text-4xl font-black shadow-lg">BİTİRDİM! 🎉</button>}
              
              {isReadingFinished && (
-               <div className="bg-white p-8 rounded-[2rem] border-8 border-fuchsia-300 space-y-8">
-                 <h2 className="text-3xl font-black text-fuchsia-600 text-center">Soruları Cevapla 🧠</h2>
-                 {storyData.questions.map((q, idx) => (
-                   <div key={q.id} className="bg-fuchsia-50 p-6 rounded-2xl border-4 border-fuchsia-100">
-                     <h3 className="text-2xl font-black text-fuchsia-900 mb-4">{idx+1}. {q.q}</h3>
-                     <div className="flex flex-col gap-3">
-                        {q.options.map((opt, optIdx) => (
-                          <button key={optIdx} onClick={() => setAnswers({...answers, [q.id]: optIdx})} className={`p-4 rounded-xl font-bold text-lg text-left ${answers[q.id] === optIdx ? 'bg-emerald-500 text-white' : 'bg-white text-fuchsia-700'}`}>{opt}</button>
-                        ))}
-                     </div>
+               <div className="space-y-8">
+                 {/* YENİ: BİTİRDİKTEN SONRA AÇILAN HAZİNE AVI KARTI */}
+                 {storyData?.treasureHunt && (
+                   <div className="bg-amber-100 border-4 border-amber-300 p-8 rounded-[2rem] shadow-lg flex flex-col md:flex-row items-center justify-between gap-6 animate-pulse">
+                      <div className="flex items-center gap-6">
+                         <div className="bg-white w-20 h-20 rounded-full flex items-center justify-center shadow-inner">
+                            <Search className="text-amber-500 w-12 h-12" />
+                         </div>
+                         <div>
+                            <h4 className="font-black text-amber-900 text-3xl mb-2">Dedektif Olma Zamanı!</h4>
+                            <p className="font-bold text-amber-700 text-xl">{storyData.treasureHunt.task} Tıklayarak bul!</p>
+                         </div>
+                      </div>
+                      <div className="bg-white px-8 py-4 rounded-3xl border-4 border-amber-200 font-black text-amber-600 text-5xl text-center">
+                         {foundWords.length} / {storyData.treasureHunt.targetWords.length}
+                         {foundWords.length === storyData.treasureHunt.targetWords.length && <div className="text-sm mt-2 text-emerald-600">Rozet Açıldı!</div>}
+                      </div>
                    </div>
-                 ))}
-                 <button onClick={checkAnswers} disabled={Object.keys(answers).length < 2} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-3xl font-black border-b-8 border-sky-700">KARNEMİ GÖSTER 🏆</button>
+                 )}
+
+                 <div className="bg-white p-8 rounded-[2rem] border-8 border-fuchsia-300 space-y-8">
+                   <h2 className="text-3xl font-black text-fuchsia-600 text-center">Soruları Cevapla 🧠</h2>
+                   {storyData.questions.map((q, idx) => (
+                     <div key={q.id} className="bg-fuchsia-50 p-6 rounded-2xl border-4 border-fuchsia-100">
+                       <h3 className="text-2xl font-black text-fuchsia-900 mb-4">{idx+1}. {q.q}</h3>
+                       <div className="flex flex-col gap-3">
+                          {q.options.map((opt, optIdx) => (
+                            <button key={optIdx} onClick={() => setAnswers({...answers, [q.id]: optIdx})} className={`p-4 rounded-xl font-bold text-lg text-left ${answers[q.id] === optIdx ? 'bg-emerald-500 text-white' : 'bg-white text-fuchsia-700'}`}>{opt}</button>
+                          ))}
+                       </div>
+                     </div>
+                   ))}
+                   <button onClick={checkAnswers} disabled={Object.keys(answers).length < 2} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-3xl font-black border-b-8 border-sky-700">KARNEMİ GÖSTER 🏆</button>
+                 </div>
                </div>
              )}
           </div>
@@ -681,7 +688,7 @@ export default function App() {
         {view === 'result' && (
           <div className="max-w-2xl mx-auto bg-white/95 p-10 rounded-[3rem] shadow-2xl border-8 border-sky-300 mt-12 text-center space-y-8">
              {readingResult.badge && (
-                <div className="text-6xl animate-bounce mb-4">{readingResult.badge}</div>
+                <div className="text-8xl animate-bounce mb-4 text-center">{readingResult.badge}</div>
              )}
              <h2 className="text-4xl font-black text-sky-600">Tebrikler {readingResult.name.split(' ')[0]}!</h2>
              <div className="bg-indigo-50 p-6 rounded-2xl font-bold text-indigo-900 text-lg">"{readingResult.aiEvaluation.geribildirim}"</div>
