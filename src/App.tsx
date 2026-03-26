@@ -41,9 +41,9 @@ export default function App() {
   const [selectedStudentForProgress, setSelectedStudentForProgress] = useState(null);
 
   const [hwForm, setHwForm] = useState({
-    text: 'Minik arı vız vız uçtu. Renkli bir çiçek gördü. Çiçeğin üstüne konup bal özü aldı. Sonra kovanına geri döndü.',
-    q1: 'Minik arı ne gördü?', q1o1: 'Renkli çiçek', q1o2: 'Büyük ağaç', q1o3: 'Küçük ev', q1c: 0,
-    q2: 'Arı çiçekten ne aldı?', q2o1: 'Yaprak', q2o2: 'Bal özü', q2o3: 'Su', q2c: 1
+    text: '',
+    q1: '', q1o1: '', q1o2: '', q1o3: '', q1c: 0,
+    q2: '', q2o1: '', q2o2: '', q2o3: '', q2c: 1
   });
 
   const [studentName, setStudentName] = useState('');
@@ -67,7 +67,11 @@ export default function App() {
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
   const [isGeneratingHomework, setIsGeneratingHomework] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
-  const [aiTopic, setAiTopic] = useState('');
+  
+  // Ödev Üretimi İçin Yeni Stateler
+  const [hwTopic, setHwTopic] = useState('');
+  const [hwLevel, setHwLevel] = useState('1');
+  const [isGeneratingHw, setIsGeneratingHw] = useState(false);
   
   const [loginError, setLoginError] = useState(''); 
   const [micError, setMicError] = useState(''); 
@@ -92,11 +96,7 @@ export default function App() {
 
   useEffect(() => {
     const initAuth = async () => {
-      try {
-        await signInAnonymously(auth);
-      } catch (error) {
-        console.error("Auth error:", error);
-      }
+      try { await signInAnonymously(auth); } catch (error) { console.error("Auth error:", error); }
     };
     initAuth();
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
@@ -193,8 +193,27 @@ export default function App() {
     } catch (e) { showTeacherMessage('❌ Hata oluştu.'); }
   };
 
-  const handlePublishHomework = () => {
-    showTeacherMessage('Ödev başarıyla gönderildi!');
+  // YENİ: Ödevi Veritabanına Kaydetme
+  const handlePublishHomework = async () => {
+    if (!hwForm.text || !hwForm.q1 || !hwForm.q2) {
+      showTeacherMessage('⚠️ Lütfen metni ve soruları eksiksiz doldurun.');
+      return;
+    }
+    showTeacherMessage('⏳ Ödev gönderiliyor...');
+    try {
+      const homeworkData = {
+        text: hwForm.text,
+        questions: [
+          { id: 1, q: hwForm.q1, options: [hwForm.q1o1, hwForm.q1o2, hwForm.q1o3], correct: Number(hwForm.q1c) },
+          { id: 2, q: hwForm.q2, options: [hwForm.q2o1, hwForm.q2o2, hwForm.q2o3], correct: Number(hwForm.q2c) }
+        ],
+        timestamp: serverTimestamp()
+      };
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current'), homeworkData);
+      showTeacherMessage('✅ Ödev sınıfa başarıyla gönderildi!');
+    } catch (e) {
+      showTeacherMessage('❌ Ödev gönderilemedi.');
+    }
   };
 
   const handleUpdateTeacherPassword = async () => {
@@ -231,10 +250,24 @@ export default function App() {
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const studentNamesStr = students.map(s => s.name.split(' ')[0]).join(', ');
-    const prompt = `Sen dünyanın en iyi çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: ${topic}. 
-    Seviye: ${selectedLevel}. (1: 15-25 kelime, basit. 2: 25-45 kelime, orta. 3: 45-70 kelime, zor). Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
-    Hikaye sonunda 3 şıklı 2 adet anlama sorusu hazırla. YALNIZCA aşağıdaki JSON formatında cevap ver:
-    { "text": "Hikaye...", "questions": [ { "id": 1, "q": "Soru 1?", "options": ["A", "B", "C"], "correct": 0 }, { "id": 2, "q": "Soru 2?", "options": ["A", "B", "C"], "correct": 1 } ] }`;
+    
+    let levelInstructions = "";
+    if (selectedLevel === '1') {
+      levelInstructions = "KOLAY SEVİYE: Kesinlikle 15 ile 25 kelime arasında yaz. Cümle yapısı kısa ve çok basit olsun (yalnızca Özne + Yüklem). Odak noktan: Kelime tanıma ve temel yargıyı anlama.";
+    } else if (selectedLevel === '2') {
+      levelInstructions = "ORTA SEVİYE: Kesinlikle 25 ile 45 kelime arasında yaz. Cümle yapısında birleşik cümleler ve sıfat tamlamaları kullan. Odak noktan: Olay örgüsünü takip etme.";
+    } else if (selectedLevel === '3') {
+      levelInstructions = "ZOR SEVİYE: Kesinlikle 45 ile 70 kelime arasında yaz. Neden-sonuç ilişkisi içeren paragraflar kurgula. Odak noktan: Çıkarım yapma ve detayları yakalama.";
+    }
+
+    const prompt = `Sen dünyanın en iyi çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: "${topic}". 
+    Şu kurallara SIKI SIKIYA UYMALISIN:
+    ${levelInstructions}
+    Kelime sayısına KESİNLİKLE uy.
+    Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
+    Hikaye bittikten sonra metne uygun 3 şıklı 2 adet anlama sorusu hazırla. 
+    YALNIZCA aşağıdaki JSON formatında cevap ver (dışına hiçbir şey yazma):
+    { "text": "Hikaye metni buraya...", "questions": [ { "id": 1, "q": "Soru 1?", "options": ["A", "B", "C"], "correct": 0 }, { "id": 2, "q": "Soru 2?", "options": ["A", "B", "C"], "correct": 1 } ] }`;
 
     const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
 
@@ -249,6 +282,26 @@ export default function App() {
         if (i === 2) throw err;
         await new Promise(r => setTimeout(r, delays[i]));
       }
+    }
+  };
+
+  // YENİ: Yapay Zeka ile Ödev Üretme Fonksiyonu
+  const handleGenerateHomeworkAI = async () => {
+    if (!hwTopic) { showTeacherMessage("⚠️ Lütfen bir ödev konusu yazın."); return; }
+    setIsGeneratingHw(true);
+    showTeacherMessage("⏳ Yapay zeka ödevi hazırlıyor, lütfen bekleyin...");
+    try {
+      const aiData = await callGeminiAPI(hwTopic, hwLevel);
+      setHwForm({
+        text: aiData.text,
+        q1: aiData.questions[0].q, q1o1: aiData.questions[0].options[0], q1o2: aiData.questions[0].options[1], q1o3: aiData.questions[0].options[2], q1c: aiData.questions[0].correct,
+        q2: aiData.questions[1].q, q2o1: aiData.questions[1].options[0], q2o2: aiData.questions[1].options[1], q2o3: aiData.questions[1].options[2], q2c: aiData.questions[1].correct
+      });
+      showTeacherMessage("✨ Ödev başarıyla oluşturuldu! Düzenleyip sınıfa gönderebilirsiniz.");
+    } catch (err) {
+      showTeacherMessage("❌ Hata oluştu, lütfen tekrar deneyin.");
+    } finally {
+      setIsGeneratingHw(false);
     }
   };
 
@@ -612,18 +665,95 @@ export default function App() {
                 <div className="space-y-4">
                   {students.map(s => (
                     <div key={s.id} className="flex justify-between items-center p-4 bg-emerald-50 rounded-xl font-bold">
-                      <span>{s.name}</span>
-                      <button onClick={() => handleDeleteStudent(s.id, s.name)} className="bg-rose-500 text-white px-4 py-2 rounded-lg">Sil</button>
+                      <span className="flex-1 text-lg">{s.name}</span>
+                      <div className="flex items-center gap-3">
+                        {editingPasswords[s.id] !== undefined ? (
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="text" 
+                              value={editingPasswords[s.id]} 
+                              onChange={(e) => setEditingPasswords({...editingPasswords, [s.id]: e.target.value})}
+                              className="w-24 p-2 border-2 border-emerald-300 rounded-lg text-center font-bold outline-none"
+                              maxLength={4}
+                            />
+                            <button onClick={() => handleUpdatePassword(s.id, editingPasswords[s.id])} className="bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold">Kaydet</button>
+                            <button onClick={() => { const newEd = {...editingPasswords}; delete newEd[s.id]; setEditingPasswords(newEd); }} className="bg-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold">İptal</button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="bg-white px-4 py-2 rounded-lg border-2 border-emerald-200 text-emerald-700 tracking-widest font-bold">{s.password}</span>
+                            <button onClick={() => setEditingPasswords({...editingPasswords, [s.id]: s.password})} className="bg-sky-500 text-white px-4 py-2 rounded-lg font-bold">Şifre Değiştir</button>
+                          </div>
+                        )}
+                        <button onClick={() => handleDeleteStudent(s.id, s.name)} className="bg-rose-500 text-white px-4 py-2 rounded-lg font-bold">Sil</button>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
+            {/* YENİ: Gelişmiş Ödev Paneli */}
             {teacherTab === 'homework' && (
-              <div>
-                <textarea value={hwForm.text} onChange={e => setHwForm({...hwForm, text: e.target.value})} className="w-full p-6 border-4 rounded-2xl h-40 font-bold mb-4" placeholder="Okuma Metni..." />
-                <button onClick={handlePublishHomework} className="w-full bg-emerald-500 text-white py-4 rounded-2xl font-black text-2xl">Sınıfa Gönder</button>
+              <div className="space-y-6">
+                {/* Yapay Zeka Ödev Üretici */}
+                <div className="bg-fuchsia-50 p-6 rounded-2xl border-4 border-fuchsia-100 flex flex-wrap gap-4 items-center">
+                   <h3 className="w-full text-xl font-black text-fuchsia-800 mb-2">🤖 Yapay Zeka ile Ödev Üret</h3>
+                   <input type="text" placeholder="Ödev Konusu (Örn: Uzaylı Dostlar)" value={hwTopic} onChange={e=>setHwTopic(e.target.value)} className="flex-1 p-3 border-4 border-fuchsia-200 rounded-xl font-bold" />
+                   <select value={hwLevel} onChange={e=>setHwLevel(e.target.value)} className="p-3 border-4 border-fuchsia-200 rounded-xl font-bold bg-white text-fuchsia-900">
+                     <option value="1">Kolay Seviye</option>
+                     <option value="2">Orta Seviye</option>
+                     <option value="3">Zor Seviye</option>
+                   </select>
+                   <button onClick={handleGenerateHomeworkAI} disabled={isGeneratingHw} className="bg-fuchsia-500 hover:bg-fuchsia-400 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition-all">
+                     {isGeneratingHw ? <Loader2 className="animate-spin" /> : <Sparkles />} Üret
+                   </button>
+                </div>
+
+                {/* Metin Alanı */}
+                <div>
+                   <label className="block text-lg font-black text-emerald-800 mb-2">Okuma Metni:</label>
+                   <textarea value={hwForm.text} onChange={e => setHwForm({...hwForm, text: e.target.value})} className="w-full p-4 border-4 border-emerald-200 rounded-2xl h-40 font-bold" placeholder="Okuma metnini buraya yazın veya yapay zekaya ürettirin..." />
+                </div>
+                
+                {/* Sorular Alanı */}
+                <div className="grid md:grid-cols-2 gap-6">
+                   {/* Soru 1 */}
+                   <div className="bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100 space-y-3">
+                      <label className="font-black text-emerald-800">Soru 1:</label>
+                      <input type="text" value={hwForm.q1} onChange={e=>setHwForm({...hwForm, q1: e.target.value})} className="w-full p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="Soru cümlesi..." />
+                      <div className="grid grid-cols-3 gap-2">
+                        <input type="text" value={hwForm.q1o1} onChange={e=>setHwForm({...hwForm, q1o1: e.target.value})} className="p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="A Şıkkı" />
+                        <input type="text" value={hwForm.q1o2} onChange={e=>setHwForm({...hwForm, q1o2: e.target.value})} className="p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="B Şıkkı" />
+                        <input type="text" value={hwForm.q1o3} onChange={e=>setHwForm({...hwForm, q1o3: e.target.value})} className="p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="C Şıkkı" />
+                      </div>
+                      <label className="font-bold text-emerald-700 text-sm">Doğru Cevap:</label>
+                      <select value={hwForm.q1c} onChange={e=>setHwForm({...hwForm, q1c: Number(e.target.value)})} className="w-full p-2 border-2 border-emerald-200 rounded-lg font-bold">
+                         <option value={0}>A Şıkkı</option>
+                         <option value={1}>B Şıkkı</option>
+                         <option value={2}>C Şıkkı</option>
+                      </select>
+                   </div>
+                   
+                   {/* Soru 2 */}
+                   <div className="bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100 space-y-3">
+                      <label className="font-black text-emerald-800">Soru 2:</label>
+                      <input type="text" value={hwForm.q2} onChange={e=>setHwForm({...hwForm, q2: e.target.value})} className="w-full p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="Soru cümlesi..." />
+                      <div className="grid grid-cols-3 gap-2">
+                        <input type="text" value={hwForm.q2o1} onChange={e=>setHwForm({...hwForm, q2o1: e.target.value})} className="p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="A Şıkkı" />
+                        <input type="text" value={hwForm.q2o2} onChange={e=>setHwForm({...hwForm, q2o2: e.target.value})} className="p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="B Şıkkı" />
+                        <input type="text" value={hwForm.q2o3} onChange={e=>setHwForm({...hwForm, q2o3: e.target.value})} className="p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="C Şıkkı" />
+                      </div>
+                      <label className="font-bold text-emerald-700 text-sm">Doğru Cevap:</label>
+                      <select value={hwForm.q2c} onChange={e=>setHwForm({...hwForm, q2c: Number(e.target.value)})} className="w-full p-2 border-2 border-emerald-200 rounded-lg font-bold">
+                         <option value={0}>A Şıkkı</option>
+                         <option value={1}>B Şıkkı</option>
+                         <option value={2}>C Şıkkı</option>
+                      </select>
+                   </div>
+                </div>
+
+                <button onClick={handlePublishHomework} className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-4 rounded-2xl font-black text-2xl border-b-8 border-emerald-700 shadow-xl active:translate-y-2 active:border-b-0 transition-all mt-4">Sınıfa Gönder 🚀</button>
               </div>
             )}
 
