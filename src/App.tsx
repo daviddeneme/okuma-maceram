@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, BookOpen, Star, Clock, Trophy, ArrowLeft, BarChart3, Rocket, Heart, Zap, Volume2, Mic, Send, FileText, Check, Loader2, Sparkles, Settings, Camera, TrendingUp, Award, X, Flame, Users } from 'lucide-react';
+import { User, BookOpen, Star, Clock, Trophy, ArrowLeft, BarChart3, Rocket, Heart, Zap, Volume2, Mic, Send, FileText, Check, Loader2, Sparkles, Settings, Camera, TrendingUp, Award, X, Flame, Users, Search } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -92,8 +92,9 @@ export default function App() {
   const [teacherPassword, setTeacherPassword] = useState('');
   const [passwordError, setPasswordError] = useState(false);
 
-  // YENİ: Hecematik Durumu
   const [showHeceler, setShowHeceler] = useState(false);
+  // YENİ: Hazine Avı İçin Bulunan Kelimeler
+  const [foundWords, setFoundWords] = useState([]);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -235,6 +236,15 @@ export default function App() {
     } catch (e) { showTeacherMessage("❌ Hata."); }
   };
 
+  const handleAvatarChange = async (ava) => {
+    setStudentAvatar(ava);
+    if (savedProfile && user) {
+      const newProfile = { ...savedProfile, avatar: ava };
+      setSavedProfile(newProfile);
+      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), newProfile, { merge: true });
+    }
+  };
+
   const callGeminiAPI = async (topic, selectedLevel) => {
     const apiKey = EXTERNAL_GEMINI_API_KEY; 
     if (!apiKey) throw new Error("API Anahtarı bulunamadı.");
@@ -254,12 +264,22 @@ export default function App() {
     const prompt = `Sen Türkçe dilini kusursuz, son derece doğal ve insansı bir şekilde kullanan ödüllü bir çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: "${topic}". 
     Şu kurallara SIKI SIKIYA UYMALISIN:
     ${levelInstructions}
-    EDEBI KALİTE: Metin kesinlikle robotik veya yapay zeka tarafından yazılmış gibi durmamalıdır. Cümleler birbirini kusursuzca tamamlamalı, sürükleyici, bağlantılı, çocukların dikkatini çeken, merak uyandıran ve çok doğal (gerçek bir insanın elinden çıkmış gibi sıcak) bir Türkçe ile yazılmalıdır.
-    Kelime sayısına KESİNLİKLE uy.
-    Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
-    Hikaye bittikten sonra metne uygun 3 şıklı 2 adet anlama sorusu hazırla. 
-    YALNIZCA aşağıdaki JSON formatında cevap ver (dışına hiçbir şey yazma):
-    { "text": "Hikaye metni buraya...", "questions": [ { "id": 1, "q": "Soru 1?", "options": ["A", "B", "C"], "correct": 0 }, { "id": 2, "q": "Soru 2?", "options": ["A", "B", "C"], "correct": 1 } ] }`;
+    EDEBI KALİTE: Metin kesinlikle robotik durmamalıdır. Cümleler birbirini kusursuzca tamamlamalı, sürükleyici, bağlantılı, merak uyandıran ve çok doğal bir Türkçe ile yazılmalıdır.
+    HAZİNE AVI (METİN MADENCİLİĞİ): Hikayenin içine belli bir kategoriye ait (örneğin 3 farklı renk, 3 farklı hayvan ismi veya 3 meyve) gizli kelimeler yerleştir.
+    Kelime sayısına KESİNLİKLE uy. Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
+    
+    YALNIZCA aşağıdaki JSON formatında cevap ver (dışına hiçbir şey yazma, targetWords listesinde kelimenin metinde geçen TAMP TAMINA ek almış halini yaz):
+    { 
+      "text": "Hikaye metni buraya...", 
+      "questions": [ 
+         { "id": 1, "q": "Soru 1?", "options": ["A", "B", "C"], "correct": 0 }, 
+         { "id": 2, "q": "Soru 2?", "options": ["A", "B", "C"], "correct": 1 } 
+      ],
+      "treasureHunt": {
+         "task": "Metindeki gizli renkleri bulup tıkla!",
+         "targetWords": ["kırmızı", "mavi", "sarı"]
+      }
+    }`;
 
     const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
 
@@ -290,7 +310,7 @@ export default function App() {
       });
       showTeacherMessage("✨ Ödev başarıyla oluşturuldu! Düzenleyip sınıfa gönderebilirsiniz.");
     } catch (err) {
-      showTeacherMessage("❌ Hata oluştu, lütfen tekrar deneyin.");
+      showTeacherMessage("❌ Sunucu şuan çok yoğun daha sonra tekrar deneyiniz");
     } finally {
       setIsGeneratingHw(false);
     }
@@ -331,12 +351,6 @@ export default function App() {
     setSavedProfile(profileData);
   };
 
-  const clearProfile = async () => {
-    if (!user) return;
-    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'));
-    setSavedProfile(null); setRememberMe(false); setStudentName(''); setStudentPassword(''); setStudentAvatar('🐶'); setSelectedTopics([]); setCustomTopic('');
-  };
-
   const handleStartFreeReading = async () => {
     if (!validateStudent()) return;
     const combinedInterest = [...selectedTopics, customTopic].filter(t => t.trim() !== '').join(', ');
@@ -352,7 +366,7 @@ export default function App() {
   };
 
   const startReadingSession = async (currentInterest, currentLevel, isHomework) => {
-    setInterest(currentInterest); setLevel(currentLevel); setAnswers({}); setHasRetried(false); setAudioUrl(null); setIsReadingFinished(false); setShowHeceler(false);
+    setInterest(currentInterest); setLevel(currentLevel); setAnswers({}); setHasRetried(false); setAudioUrl(null); setIsReadingFinished(false); setShowHeceler(false); setFoundWords([]);
     if (isHomework) {
       setStoryData(activeHomework); setView('reading-ready');
     } else {
@@ -361,7 +375,8 @@ export default function App() {
         const aiData = await callGeminiAPI(currentInterest, currentLevel);
         setStoryData(aiData); setView('reading-ready');
       } catch (err) {
-        setLoginError("Hikaye oluşturulurken hata oluştu. Lütfen tekrar deneyin."); setView('student-setup');
+        setLoginError("Sunucu şuan çok yoğun daha sonra tekrar deneyiniz"); 
+        setView('student-setup');
       } finally { setIsGeneratingStory(false); }
     }
   };
@@ -426,15 +441,20 @@ export default function App() {
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), newProfile, { merge: true });
     }
 
-    const newResult = { name: studentName, avatar: studentAvatar, interest: interest, level: level, words: tempStats.words, timeSeconds: tempStats.timeSeconds, wpm: tempStats.wpm, compScore: correctCount, audioUrl: audioUrl || null, aiEvaluation, streakAchieved: currentStreak, date: new Date().toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }), timestamp: serverTimestamp() };
+    // Rozet Kontrolü
+    const earnedBadge = (storyData.treasureHunt && foundWords.length === storyData.treasureHunt.targetWords.length) ? '🕵️‍♂️' : '';
+
+    const newResult = { name: studentName, avatar: studentAvatar, interest: interest, level: level, words: tempStats.words, timeSeconds: tempStats.timeSeconds, wpm: tempStats.wpm, compScore: correctCount, badge: earnedBadge, audioUrl: audioUrl || null, aiEvaluation, streakAchieved: currentStreak, date: new Date().toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }), timestamp: serverTimestamp() };
     setReadingResult(newResult); setIsEvaluating(false); setView('result');
     try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'stats'), newResult); } catch (e) {}
   };
 
-  // YENİ: Türkçe Heceleme Fonksiyonu
+  // YENİ: Hem Hecematik Hem Hazine Avı İçeren Metin Çizer
   const renderStoryText = () => {
-    if (!showHeceler) return storyData?.text;
+    if (!storyData || !storyData.text) return null;
     
+    const targetWordsLower = (storyData.treasureHunt?.targetWords || []).map(w => w.toLowerCase('tr-TR'));
+
     return storyData.text.split(/(\s+)/).map((wordOrSpace, idx) => {
        if (!wordOrSpace.trim()) return <span key={idx}>{wordOrSpace}</span>; 
        
@@ -444,36 +464,56 @@ export default function App() {
        const before = match[1];
        const cleanWord = match[2];
        const after = match[3];
+       const lowerCleanWord = cleanWord.toLowerCase('tr-TR');
        
-       const sesliler = 'aeıioöuüAEIİOÖUÜ';
-       let heceler = [];
-       let kelimeKopya = cleanWord;
+       const isTarget = targetWordsLower.includes(lowerCleanWord);
+       const isFound = foundWords.includes(lowerCleanWord);
+
+       const handleWordClick = () => {
+         if (isTarget && !isFound) {
+            setFoundWords(prev => [...prev, lowerCleanWord]);
+         }
+       };
+
+       const wordContainerClass = isFound 
+          ? "bg-amber-300 text-amber-900 rounded-lg px-1 transition-all duration-300 scale-110 inline-block shadow-sm" 
+          : (storyData.treasureHunt ? "cursor-pointer hover:bg-sky-100 transition-all rounded-lg px-1 inline-block" : "");
+
+       let content = <span>{cleanWord}</span>;
        
-       while (kelimeKopya.length > 0) {
-         let sesliIndex = -1;
-         for (let i = kelimeKopya.length - 1; i >= 0; i--) {
-           if (sesliler.includes(kelimeKopya[i])) { sesliIndex = i; break; }
+       if (showHeceler) {
+         const sesliler = 'aeıioöuüAEIİOÖUÜ';
+         let heceler = [];
+         let kelimeKopya = cleanWord;
+         while (kelimeKopya.length > 0) {
+           let sesliIndex = -1;
+           for (let i = kelimeKopya.length - 1; i >= 0; i--) {
+             if (sesliler.includes(kelimeKopya[i])) { sesliIndex = i; break; }
+           }
+           if (sesliIndex === -1) {
+             if (heceler.length > 0) heceler[0] = kelimeKopya + heceler[0];
+             else heceler.unshift(kelimeKopya);
+             break;
+           }
+           let heceBaslangici = sesliIndex;
+           if (sesliIndex > 0 && !sesliler.includes(kelimeKopya[sesliIndex - 1])) {
+             heceBaslangici = sesliIndex - 1;
+           }
+           heceler.unshift(kelimeKopya.substring(heceBaslangici));
+           kelimeKopya = kelimeKopya.substring(0, heceBaslangici);
          }
-         if (sesliIndex === -1) {
-           if (heceler.length > 0) heceler[0] = kelimeKopya + heceler[0];
-           else heceler.unshift(kelimeKopya);
-           break;
-         }
-         let heceBaslangici = sesliIndex;
-         if (sesliIndex > 0 && !sesliler.includes(kelimeKopya[sesliIndex - 1])) {
-           heceBaslangici = sesliIndex - 1;
-         }
-         heceler.unshift(kelimeKopya.substring(heceBaslangici));
-         kelimeKopya = kelimeKopya.substring(0, heceBaslangici);
+         content = (
+           <>
+             {heceler.map((hece, hIdx) => (
+               <span key={hIdx} className={hIdx % 2 === 0 ? "text-rose-500" : "text-slate-800"}>{hece}</span>
+             ))}
+           </>
+         );
        }
        
        return (
-         <span key={idx}>
-           {before}
-           {heceler.map((hece, hIdx) => (
-             <span key={hIdx} className={hIdx % 2 === 0 ? "text-rose-500" : "text-slate-800"}>{hece}</span>
-           ))}
-           {after}
+         <span key={idx} onClick={handleWordClick} className={wordContainerClass}>
+           {before}{content}{after}
          </span>
        );
     });
@@ -574,18 +614,42 @@ export default function App() {
 
         {view === 'reading-active' && (
           <div className="max-w-4xl mx-auto mt-12 space-y-8">
+             {/* YENİ: Hazine Avı Görev Kartı */}
+             {storyData?.treasureHunt && (
+               <div className="bg-amber-100 border-4 border-amber-300 p-4 rounded-3xl mb-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                     <div className="bg-white w-14 h-14 rounded-full flex items-center justify-center shadow-inner">
+                        <Search className="text-amber-500 w-8 h-8" />
+                     </div>
+                     <div>
+                        <h4 className="font-black text-amber-900 text-xl">Hazine Avı Görevi!</h4>
+                        <p className="font-bold text-amber-700 text-lg">{storyData.treasureHunt.task}</p>
+                     </div>
+                  </div>
+                  <div className="bg-white px-6 py-3 rounded-2xl border-4 border-amber-200 font-black text-amber-600 text-3xl">
+                     {foundWords.length} / {storyData.treasureHunt.targetWords.length}
+                  </div>
+               </div>
+             )}
+
              <div className="bg-white p-6 md:p-10 rounded-[3rem] shadow-2xl border-8 border-sky-200 relative mt-8">
-                {/* YENİ: Hecematik Butonu */}
                 <div className="absolute -top-6 right-6">
                     <button onClick={() => setShowHeceler(!showHeceler)} className={`px-4 py-2 md:px-6 md:py-3 rounded-full font-black flex items-center gap-2 shadow-lg transition-colors ${showHeceler ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
                       <Sparkles size={20} />
                       HECEMATİK {showHeceler ? 'AÇIK' : 'KAPALI'}
                     </button>
                 </div>
-                <p className="text-xl md:text-3xl leading-relaxed md:leading-[4rem] font-bold text-slate-800 whitespace-pre-wrap mt-4">
+                <p className="text-xl md:text-3xl leading-relaxed md:leading-[4rem] font-bold text-slate-800 whitespace-pre-wrap mt-4 cursor-default">
                    {renderStoryText()}
                 </p>
              </div>
+
+             {storyData?.treasureHunt && foundWords.length === storyData.treasureHunt.targetWords.length && foundWords.length > 0 && (
+                <div className="bg-emerald-100 text-emerald-800 p-4 rounded-2xl border-4 border-emerald-300 font-black text-center text-2xl animate-bounce shadow-lg">
+                  Tebrikler! Dedektif Rozetini Kazandın! 🕵️‍♂️✨
+                </div>
+             )}
+
              {!isReadingFinished && <button onClick={finishReading} className="w-full bg-emerald-500 text-white py-6 rounded-full text-4xl font-black shadow-lg">BİTİRDİM! 🎉</button>}
              
              {isReadingFinished && (
@@ -616,6 +680,9 @@ export default function App() {
 
         {view === 'result' && (
           <div className="max-w-2xl mx-auto bg-white/95 p-10 rounded-[3rem] shadow-2xl border-8 border-sky-300 mt-12 text-center space-y-8">
+             {readingResult.badge && (
+                <div className="text-6xl animate-bounce mb-4">{readingResult.badge}</div>
+             )}
              <h2 className="text-4xl font-black text-sky-600">Tebrikler {readingResult.name.split(' ')[0]}!</h2>
              <div className="bg-indigo-50 p-6 rounded-2xl font-bold text-indigo-900 text-lg">"{readingResult.aiEvaluation.geribildirim}"</div>
              <div className="grid grid-cols-2 gap-4">
@@ -669,12 +736,14 @@ export default function App() {
                     <h4 className="font-black text-emerald-800 mb-6 text-center">Okuma Hızı Gelişim Grafiği (WPM)</h4>
                     <div className="flex items-end justify-center gap-4 h-48 mt-4">
                        {[...stats].filter(r => r.name === selectedStudentForProgress).reverse().map((row, idx) => {
-                          const allWpm = stats.filter(r => r.name === selectedStudentForProgress).map(s => s.wpm);
+                          const studentStats = stats.filter(r => r.name === selectedStudentForProgress);
+                          const allWpm = studentStats.map(s => Number(s.wpm) || 0);
                           const maxWpm = Math.max(...allWpm, 50);
-                          const heightPct = Math.min((row.wpm / maxWpm) * 100, 100);
+                          const currentWpm = Number(row.wpm) || 0;
+                          const heightPct = Math.min((currentWpm / maxWpm) * 100, 100);
                           return (
                             <div key={idx} className="flex flex-col items-center gap-2 w-16 group relative">
-                               <span className="font-bold text-sm text-emerald-600 opacity-0 group-hover:opacity-100 absolute -top-8 bg-emerald-100 px-2 py-1 rounded transition-opacity">{row.wpm}</span>
+                               <span className="font-bold text-sm text-emerald-600 opacity-0 group-hover:opacity-100 absolute -top-8 bg-emerald-100 px-2 py-1 rounded transition-opacity">{currentWpm}</span>
                                <div className="w-full bg-emerald-400 rounded-t-md transition-all hover:bg-emerald-500 cursor-pointer" style={{ height: `${heightPct}%`, minHeight: '10%' }}></div>
                                <span className="text-[10px] font-bold text-slate-400 truncate w-full text-center">{row.date?.split(' ')[0]}</span>
                             </div>
@@ -708,7 +777,7 @@ export default function App() {
                               <td className="p-4">{row.date || 'Belirtilmedi'}</td>
                               <td className="p-4">{row.interest}</td>
                               <td className="p-4 text-center">{row.wpm}</td>
-                              <td className="p-4 text-center">{row.compScore}/2</td>
+                              <td className="p-4 text-center">{row.compScore}/2 {row.badge}</td>
                               <td className="p-4 text-center">
                                 {row.audioUrl ? <audio src={row.audioUrl} controls className="h-8 w-full max-w-[150px] mx-auto" /> : <span className="text-slate-400 text-sm">Yok</span>}
                               </td>
@@ -745,7 +814,7 @@ export default function App() {
                              <td className="p-4">{row.name}</td>
                              <td className="p-4">{row.interest}</td>
                              <td className="p-4 text-center">{row.wpm}</td>
-                             <td className="p-4 text-center">{row.compScore}/2</td>
+                             <td className="p-4 text-center">{row.compScore}/2 {row.badge}</td>
                              <td className="p-4 text-center">
                                {row.audioUrl ? <audio src={row.audioUrl} controls className="h-8 w-full max-w-[150px] mx-auto" /> : <span className="text-slate-400 text-sm">Yok</span>}
                              </td>
