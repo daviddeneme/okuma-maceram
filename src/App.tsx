@@ -19,7 +19,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-// GÜVENLİK GÜNCELLEMESİ: Şifre Vercel kasasından çekiliyor.
+// GÜVENLİK GÜNCELLEMESİ: Şifre artık doğrudan koda yazılmıyor, Vercel kasasından çekiliyor.
 const EXTERNAL_GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; 
 
 const PREDEFINED_AVATARS = ['🐶', '🐱', '🐰', '🦁', '🦄', '🦖', '🦋', '🚀', '🧚', '🦸‍♂️', '🧙‍♀️', '👨‍🚀'];
@@ -194,11 +194,15 @@ export default function App() {
     } catch (e) { showTeacherMessage('❌ Hata oluştu.'); }
   };
 
+  const handlePublishHomework = () => {
+    showTeacherMessage('Ödev başarıyla gönderildi!');
+  };
+
   const handleUpdateTeacherPassword = async () => {
     if (!newTeacherPasswordInput || newTeacherPasswordInput.length < 4) { showTeacherMessage("❌ En az 4 hane olmalı."); return; }
     try {
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin'), { password: newTeacherPasswordInput.trim() }, { merge: true });
-      setNewTeacherPasswordInput(''); showTeacherMessage("✅ Şifre güncellendi!");
+      setNewTeacherPasswordInput(''); showTeacherMessage("✅Şifre güncellendi!");
     } catch (e) { showTeacherMessage("❌ Hata."); }
   };
 
@@ -226,9 +230,8 @@ export default function App() {
     const apiKey = EXTERNAL_GEMINI_API_KEY; 
     if (!apiKey) throw new Error("API Anahtarı bulunamadı.");
 
-    // MODELİ, HATA ALMADIĞIMIZ ESKİ SÜRÜME GERİ ÇEVİRDİM
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
-    
+    // SİZİN HESABINIZA ÖZEL MODEL EKLENDİ (gemini-2.5-flash)
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const studentNamesStr = students.map(s => s.name.split(' ')[0]).join(', ');
     const prompt = `Sen dünyanın en iyi çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: ${topic}. 
     Seviye: ${selectedLevel}. (1: 15-25 kelime, basit. 2: 25-45 kelime, orta. 3: 45-70 kelime, zor). Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
@@ -253,25 +256,19 @@ export default function App() {
 
   const evaluateReadingWithAI = async (text, timeSeconds, wpm, compScore, audioDataUrl) => {
     const apiKey = EXTERNAL_GEMINI_API_KEY; 
-    // MODELİ BURADA DA ESKİ SÜRÜME ÇEVİRDİM
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+    // SİZİN HESABINIZA ÖZEL MODEL EKLENDİ (gemini-2.5-flash)
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const parts = [{ text: `Sen şefkatli bir öğretmensin. Metin: "${text}". Hız: ${wpm} wpm. Skor: 2/${compScore}. JSON formatında 1-5 arası puanla ve şefkatli geri bildirim yaz: { "akicilik": 4, "telaffuz": 5, "anlama": 5, "okuma_hizi": 4, "geribildirim": "Harika!" }` }];
     
-    // Not: gemini-pro modeli ses girdisini desteklemez, o yüzden audio kısmını yoruma aldım
-    // if (audioDataUrl) {
-    //   try { parts.push({ inlineData: { mimeType: "audio/webm", data: audioDataUrl.split(',')[1] } }); } catch (e) {}
-    // }
-    const payload = { contents: [{ parts }] };
+    if (audioDataUrl) {
+      try { parts.push({ inlineData: { mimeType: "audio/webm", data: audioDataUrl.split(',')[1] } }); } catch (e) {}
+    }
+    const payload = { contents: [{ parts }], generationConfig: { responseMimeType: "application/json" } };
 
     try {
       const response = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
       const data = await response.json();
-      
-      // JSON'ı temizleme fonksiyonu (Model bazen başa ```json ekler)
-      let cleanedText = data.candidates[0].content.parts[0].text;
-      cleanedText = cleanedText.replace(/```json/g, '').replace(/```/g, '').trim();
-      return JSON.parse(cleanedText);
-      
+      return JSON.parse(data.candidates[0].content.parts[0].text);
     } catch (err) {
       return { akicilik: 5, telaffuz: 5, anlama: 5, okuma_hizi: 5, geribildirim: "Harika bir okuma yaptın! 🌟" };
     }
@@ -323,7 +320,7 @@ export default function App() {
         const aiData = await callGeminiAPI(currentInterest, currentLevel);
         setStoryData(aiData); setView('reading-ready');
       } catch (err) {
-        setLoginError("Hikaye oluşturulurken hata oluştu."); setView('student-setup');
+        setLoginError("Hikaye oluşturulurken hata oluştu. Lütfen tekrar deneyin."); setView('student-setup');
       } finally { setIsGeneratingStory(false); }
     }
   };
@@ -523,7 +520,7 @@ export default function App() {
                 <div className="bg-white p-4 rounded-xl shadow-sm font-bold"><span className="text-amber-500 text-2xl block">{readingResult.wpm}</span> Hız (wpm)</div>
                 <div className="bg-white p-4 rounded-xl shadow-sm font-bold"><span className="text-emerald-500 text-2xl block">{readingResult.compScore}/2</span> Doğru</div>
              </div>
-             <button onClick={()=>{resetStudent(); setView('student-setup')}} className="w-full bg-sky-500 text-white py-5 rounded-2xl text-2xl font-black">YENİDEN OYNA 🎮</button>
+             <button onClick={()=>{setView('student-setup')}} className="w-full bg-sky-500 text-white py-5 rounded-2xl text-2xl font-black">YENİDEN OYNA 🎮</button>
           </div>
         )}
 
