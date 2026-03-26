@@ -269,9 +269,11 @@ export default function App() {
       levelInstructions = "ZOR SEVİYE: Kesinlikle 90 ile 140 kelime arasında yaz. Neden-sonuç ilişkisi içeren paragraflar kurgula. Odak noktan: Çıkarım yapma ve detayları yakalama.";
     }
 
-    const prompt = `Sen dünyanın en iyi çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: "${topic}". 
+    // YENİ: Profesyonel Çocuk Edebiyatı Vurgusu Eklendi
+    const prompt = `Sen ödüllü, usta bir çocuk edebiyatı yazarı ve pedagoji uzmanı şefkatli bir 1. sınıf öğretmenisin. Konu: "${topic}". 
     Şu kurallara SIKI SIKIYA UYMALISIN:
     ${levelInstructions}
+    Edebi Kalite: Metindeki cümleler birbirini kusursuzca tamamlamalı, bağlantılı ve akıcı olmalıdır. Çocukların dikkatini çeken, merak uyandıran, sürükleyici ve eğlendirirken aynı zamanda bilgilendiren profesyonel kalitede bir çocuk hikayesi kurgula.
     Kelime sayısına KESİNLİKLE uy.
     Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
     Hikaye bittikten sonra metne uygun 3 şıklı 2 adet anlama sorusu hazırla. 
@@ -457,6 +459,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-fuchsia-200 font-sans flex flex-col relative pt-8 pb-12">
+      {/* Profil Düğmesi */}
       {!['teacher-login', 'teacher'].includes(view) && (
         <button onClick={() => setShowProfileModal(true)} className="absolute top-4 left-4 flex items-center gap-3 bg-white/95 p-2 pr-6 rounded-full shadow-xl border-4 border-white z-50">
            <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-sky-100 text-2xl">
@@ -466,12 +469,25 @@ export default function App() {
         </button>
       )}
 
+      {/* Ana İçerik */}
       <div className="flex-1 w-full px-4">
         
         {view === 'student-setup' && !isGeneratingStory && (
           <div className="max-w-xl mx-auto bg-white/95 p-8 rounded-[3rem] shadow-2xl border-8 border-sky-300 mt-20 relative text-center">
-             <button onClick={()=>setView('teacher-login')} className="absolute top-4 right-4 w-12 h-12 bg-emerald-400 rounded-full flex items-center justify-center text-white shadow-lg"><BarChart3 /></button>
-             <h2 className="text-4xl font-black text-sky-600 mb-8">1/A Sınıf Asistanı</h2>
+             <button onClick={()=>setView('teacher-login')} className="absolute top-4 right-4 w-12 h-12 bg-emerald-400 rounded-full flex items-center justify-center text-white shadow-lg z-10"><BarChart3 /></button>
+             
+             {/* YENİ: DİKKAT ÇEKİCİ ANA SAYFA BAŞLIĞI */}
+             <div className="flex flex-col items-center justify-center mb-10">
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-sky-400 via-fuchsia-400 to-amber-400 rounded-full blur opacity-70 animate-pulse"></div>
+                  <div className="relative w-28 h-28 bg-white rounded-full flex items-center justify-center shadow-2xl border-4 border-white mb-4">
+                     <Rocket className="text-sky-500 w-14 h-14" />
+                  </div>
+                </div>
+                <h1 className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-600 via-indigo-600 to-fuchsia-600 drop-shadow-sm tracking-tight text-center">
+                  Okuma Maceram
+                </h1>
+             </div>
              
              <div className="space-y-6">
                 <div className="bg-sky-50 p-6 rounded-2xl border-4 border-sky-100">
@@ -507,9 +523,10 @@ export default function App() {
                    </div>
                 </div>
 
+                {/* YENİ: Beni bu cihazda hatırla */}
                 <div onClick={() => setRememberMe(!rememberMe)} className="flex items-center gap-3 bg-white p-3 rounded-xl border-4 border-sky-100 cursor-pointer justify-center">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center border-4 ${rememberMe ? 'bg-fuchsia-500 border-fuchsia-500' : 'bg-white border-sky-300'}`}>{rememberMe && <Check className="text-white" />}</div>
-                  <span className="text-sky-800 font-black">Beni bu telefonda hatırla</span>
+                  <span className="text-sky-800 font-black">Beni bu cihazda hatırla</span>
                 </div>
 
                 <button onClick={handleStartFreeReading} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-2xl font-black border-b-8 border-sky-700 shadow-xl">HİKAYEMİ OLUŞTUR ✨</button>
@@ -618,7 +635,6 @@ export default function App() {
                   </select>
                 </div>
 
-                {/* Öğrenci Gelişim Grafiği (Sadece öğrenci seçiliyse görünür) */}
                 {selectedStudentForProgress && (
                   <div className="bg-white p-6 rounded-2xl border-4 border-emerald-100 mb-6 shadow-sm">
                     <h4 className="font-black text-emerald-800 mb-6 text-center">Okuma Hızı Gelişim Grafiği (WPM)</h4>
