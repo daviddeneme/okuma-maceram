@@ -65,7 +65,6 @@ export default function App() {
   const [isReadingFinished, setIsReadingFinished] = useState(false);
   
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
-  const [isGeneratingHomework, setIsGeneratingHomework] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   
   const [hwTopic, setHwTopic] = useState('');
@@ -269,11 +268,10 @@ export default function App() {
       levelInstructions = "ZOR SEVİYE: Kesinlikle 90 ile 140 kelime arasında yaz. Neden-sonuç ilişkisi içeren paragraflar kurgula. Odak noktan: Çıkarım yapma ve detayları yakalama.";
     }
 
-    // YENİ: Profesyonel Çocuk Edebiyatı Vurgusu Eklendi
-    const prompt = `Sen ödüllü, usta bir çocuk edebiyatı yazarı ve pedagoji uzmanı şefkatli bir 1. sınıf öğretmenisin. Konu: "${topic}". 
+    const prompt = `Sen Türkçe dilini kusursuz, son derece doğal ve insansı bir şekilde kullanan ödüllü bir çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: "${topic}". 
     Şu kurallara SIKI SIKIYA UYMALISIN:
     ${levelInstructions}
-    Edebi Kalite: Metindeki cümleler birbirini kusursuzca tamamlamalı, bağlantılı ve akıcı olmalıdır. Çocukların dikkatini çeken, merak uyandıran, sürükleyici ve eğlendirirken aynı zamanda bilgilendiren profesyonel kalitede bir çocuk hikayesi kurgula.
+    EDEBI KALİTE: Metin kesinlikle robotik veya yapay zeka tarafından yazılmış gibi durmamalıdır. Cümleler birbirini kusursuzca tamamlamalı, sürükleyici, bağlantılı, çocukların dikkatini çeken, merak uyandıran ve çok doğal (gerçek bir insanın elinden çıkmış gibi sıcak) bir Türkçe ile yazılmalıdır.
     Kelime sayısına KESİNLİKLE uy.
     Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
     Hikaye bittikten sonra metne uygun 3 şıklı 2 adet anlama sorusu hazırla. 
@@ -450,16 +448,8 @@ export default function App() {
     try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'stats'), newResult); } catch (e) {}
   };
 
-  const playAudio = (text) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'tr-TR'; window.speechSynthesis.speak(utterance);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-fuchsia-200 font-sans flex flex-col relative pt-8 pb-12">
-      {/* Profil Düğmesi */}
       {!['teacher-login', 'teacher'].includes(view) && (
         <button onClick={() => setShowProfileModal(true)} className="absolute top-4 left-4 flex items-center gap-3 bg-white/95 p-2 pr-6 rounded-full shadow-xl border-4 border-white z-50">
            <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-sky-100 text-2xl">
@@ -469,14 +459,12 @@ export default function App() {
         </button>
       )}
 
-      {/* Ana İçerik */}
       <div className="flex-1 w-full px-4">
         
         {view === 'student-setup' && !isGeneratingStory && (
           <div className="max-w-xl mx-auto bg-white/95 p-8 rounded-[3rem] shadow-2xl border-8 border-sky-300 mt-20 relative text-center">
              <button onClick={()=>setView('teacher-login')} className="absolute top-4 right-4 w-12 h-12 bg-emerald-400 rounded-full flex items-center justify-center text-white shadow-lg z-10"><BarChart3 /></button>
              
-             {/* YENİ: DİKKAT ÇEKİCİ ANA SAYFA BAŞLIĞI */}
              <div className="flex flex-col items-center justify-center mb-10">
                 <div className="relative">
                   <div className="absolute -inset-1 bg-gradient-to-r from-sky-400 via-fuchsia-400 to-amber-400 rounded-full blur opacity-70 animate-pulse"></div>
@@ -490,13 +478,15 @@ export default function App() {
              </div>
              
              <div className="space-y-6">
-                <div className="bg-sky-50 p-6 rounded-2xl border-4 border-sky-100">
+                <div className="bg-sky-50 p-6 rounded-2xl border-4 border-sky-100 text-left">
+                   <label className="block text-lg font-black text-sky-800 mb-2">Ad Soyad:</label>
                    <select value={studentName} onChange={e=>setStudentName(e.target.value)} className="w-full p-4 border-4 border-sky-200 rounded-xl font-bold mb-4 bg-white outline-none text-sky-800">
                      <option value="">İsmini Seç...</option>
                      {students.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                    </select>
+                   <label className="block text-lg font-black text-sky-800 mb-2 mt-4">Şifre:</label>
                    <input type="password" value={studentPassword} onChange={e=>setStudentPassword(e.target.value)} className="w-full p-4 border-4 border-sky-200 rounded-xl text-center text-2xl tracking-[1em] outline-none font-bold" placeholder="••••" maxLength={4} />
-                   {loginError && <p className="text-rose-500 font-bold mt-3">{loginError}</p>}
+                   {loginError && <p className="text-rose-500 font-bold mt-3 text-center">{loginError}</p>}
                 </div>
 
                 {activeHomework && (
@@ -523,7 +513,6 @@ export default function App() {
                    </div>
                 </div>
 
-                {/* YENİ: Beni bu cihazda hatırla */}
                 <div onClick={() => setRememberMe(!rememberMe)} className="flex items-center gap-3 bg-white p-3 rounded-xl border-4 border-sky-100 cursor-pointer justify-center">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center border-4 ${rememberMe ? 'bg-fuchsia-500 border-fuchsia-500' : 'bg-white border-sky-300'}`}>{rememberMe && <Check className="text-white" />}</div>
                   <span className="text-sky-800 font-black">Beni bu cihazda hatırla</span>
@@ -555,7 +544,7 @@ export default function App() {
         {view === 'reading-active' && (
           <div className="max-w-4xl mx-auto mt-12 space-y-8">
              <div className="bg-white p-10 rounded-[3rem] shadow-2xl border-8 border-sky-200">
-                <p className="text-3xl leading-[4rem] font-bold text-slate-800 whitespace-pre-wrap">{storyData.text}</p>
+                <p className="text-xl md:text-3xl leading-relaxed md:leading-[4rem] font-bold text-slate-800 whitespace-pre-wrap">{storyData.text}</p>
              </div>
              {!isReadingFinished && <button onClick={finishReading} className="w-full bg-emerald-500 text-white py-6 rounded-full text-4xl font-black shadow-lg">BİTİRDİM! 🎉</button>}
              
