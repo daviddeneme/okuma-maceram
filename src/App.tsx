@@ -19,7 +19,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-// GÜVENLİK GÜNCELLEMESİ: Şifre artık doğrudan koda yazılmıyor, Vercel kasasından çekiliyor.
 const EXTERNAL_GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; 
 
 const PREDEFINED_AVATARS = ['🐶', '🐱', '🐰', '🦁', '🦄', '🦖', '🦋', '🚀', '🧚', '🦸‍♂️', '🧙‍♀️', '👨‍🚀'];
@@ -230,7 +229,6 @@ export default function App() {
     const apiKey = EXTERNAL_GEMINI_API_KEY; 
     if (!apiKey) throw new Error("API Anahtarı bulunamadı.");
 
-    // SİZİN HESABINIZA ÖZEL MODEL EKLENDİ (gemini-2.5-flash)
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const studentNamesStr = students.map(s => s.name.split(' ')[0]).join(', ');
     const prompt = `Sen dünyanın en iyi çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: ${topic}. 
@@ -256,7 +254,6 @@ export default function App() {
 
   const evaluateReadingWithAI = async (text, timeSeconds, wpm, compScore, audioDataUrl) => {
     const apiKey = EXTERNAL_GEMINI_API_KEY; 
-    // SİZİN HESABINIZA ÖZEL MODEL EKLENDİ (gemini-2.5-flash)
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const parts = [{ text: `Sen şefkatli bir öğretmensin. Metin: "${text}". Hız: ${wpm} wpm. Skor: 2/${compScore}. JSON formatında 1-5 arası puanla ve şefkatli geri bildirim yaz: { "akicilik": 4, "telaffuz": 5, "anlama": 5, "okuma_hizi": 4, "geribildirim": "Harika!" }` }];
     
@@ -549,17 +546,58 @@ export default function App() {
             </div>
 
             {teacherTab === 'stats' && (
-              <div className="overflow-x-auto">
-                 <table className="w-full text-left bg-emerald-50 rounded-2xl">
-                   <thead><tr className="border-b-4 border-emerald-100"><th className="p-4">İsim</th><th className="p-4">Konu</th><th className="p-4 text-center">Hız</th><th className="p-4 text-center">Skor</th></tr></thead>
-                   <tbody>
-                     {stats.map(row => (
-                       <tr key={row.id} className="border-b-2 border-white font-bold text-emerald-900">
-                         <td className="p-4">{row.name}</td><td className="p-4">{row.interest}</td><td className="p-4 text-center">{row.wpm}</td><td className="p-4 text-center">{row.compScore}/2</td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </table>
+              <div>
+                <div className="mb-6 flex items-center gap-4 bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100">
+                  <label className="font-black text-emerald-800 text-lg">Öğrenci Gelişimi:</label>
+                  <select
+                    value={selectedStudentForProgress || ''}
+                    onChange={(e) => setSelectedStudentForProgress(e.target.value || null)}
+                    className="flex-1 p-3 border-4 border-emerald-200 rounded-xl font-bold text-emerald-900 bg-white outline-none"
+                  >
+                    <option value="">Tüm Sınıfın Son Okumaları (Genel Liste)</option>
+                    {students.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </select>
+                </div>
+
+                {selectedStudentForProgress ? (
+                  <div className="space-y-4">
+                    <h3 className="text-2xl font-black text-emerald-600 mb-4">📈 {selectedStudentForProgress} - Geçmiş Okumaları</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left bg-emerald-50 rounded-2xl">
+                        <thead><tr className="border-b-4 border-emerald-100"><th className="p-4">Tarih</th><th className="p-4">Konu</th><th className="p-4 text-center">Hız (wpm)</th><th className="p-4 text-center">Skor</th></tr></thead>
+                        <tbody>
+                          {stats.filter(r => r.name === selectedStudentForProgress).map(row => (
+                            <tr key={row.id} className="border-b-2 border-white font-bold text-emerald-900">
+                              <td className="p-4">{row.date || 'Belirtilmedi'}</td>
+                              <td className="p-4">{row.interest}</td>
+                              <td className="p-4 text-center">{row.wpm}</td>
+                              <td className="p-4 text-center">{row.compScore}/2</td>
+                            </tr>
+                          ))}
+                          {stats.filter(r => r.name === selectedStudentForProgress).length === 0 && (
+                            <tr><td colSpan="4" className="p-4 text-center text-emerald-600 font-bold">Henüz okuma kaydı yok.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                     <table className="w-full text-left bg-emerald-50 rounded-2xl">
+                       <thead><tr className="border-b-4 border-emerald-100"><th className="p-4">İsim</th><th className="p-4">Konu</th><th className="p-4 text-center">Hız</th><th className="p-4 text-center">Skor</th></tr></thead>
+                       <tbody>
+                         {stats.map(row => (
+                           <tr key={row.id} className="border-b-2 border-white font-bold text-emerald-900">
+                             <td className="p-4">{row.name}</td><td className="p-4">{row.interest}</td><td className="p-4 text-center">{row.wpm}</td><td className="p-4 text-center">{row.compScore}/2</td>
+                           </tr>
+                         ))}
+                         {stats.length === 0 && (
+                            <tr><td colSpan="4" className="p-4 text-center text-emerald-600 font-bold">Henüz hiç okuma yapılmadı.</td></tr>
+                         )}
+                       </tbody>
+                     </table>
+                  </div>
+                )}
               </div>
             )}
 
