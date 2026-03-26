@@ -68,7 +68,6 @@ export default function App() {
   const [isGeneratingHomework, setIsGeneratingHomework] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   
-  // Ödev Üretimi İçin Yeni Stateler
   const [hwTopic, setHwTopic] = useState('');
   const [hwLevel, setHwLevel] = useState('1');
   const [isGeneratingHw, setIsGeneratingHw] = useState(false);
@@ -183,6 +182,17 @@ export default function App() {
     } catch (e) { showTeacherMessage(`❌ Silinemedi.`); }
   };
 
+  const handleDeleteStat = async (id) => {
+    if (window.confirm('Bu okuma kaydını silmek istediğinize emin misiniz?')) {
+      try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stats', id));
+        showTeacherMessage('🗑️ Kayıt başarıyla silindi.');
+      } catch (e) {
+        showTeacherMessage('❌ Kayıt silinemedi.');
+      }
+    }
+  };
+
   const handleLoadDefaultClass = async () => {
     showTeacherMessage('⏳ Yükleniyor...');
     try {
@@ -193,7 +203,6 @@ export default function App() {
     } catch (e) { showTeacherMessage('❌ Hata oluştu.'); }
   };
 
-  // YENİ: Ödevi Veritabanına Kaydetme
   const handlePublishHomework = async () => {
     if (!hwForm.text || !hwForm.q1 || !hwForm.q2) {
       showTeacherMessage('⚠️ Lütfen metni ve soruları eksiksiz doldurun.');
@@ -253,11 +262,11 @@ export default function App() {
     
     let levelInstructions = "";
     if (selectedLevel === '1') {
-      levelInstructions = "KOLAY SEVİYE: Kesinlikle 15 ile 25 kelime arasında yaz. Cümle yapısı kısa ve çok basit olsun (yalnızca Özne + Yüklem). Odak noktan: Kelime tanıma ve temel yargıyı anlama.";
+      levelInstructions = "KOLAY SEVİYE: Kesinlikle 30 ile 50 kelime arasında yaz. Cümle yapısı kısa ve çok basit olsun (yalnızca Özne + Yüklem). Odak noktan: Kelime tanıma ve temel yargıyı anlama.";
     } else if (selectedLevel === '2') {
-      levelInstructions = "ORTA SEVİYE: Kesinlikle 25 ile 45 kelime arasında yaz. Cümle yapısında birleşik cümleler ve sıfat tamlamaları kullan. Odak noktan: Olay örgüsünü takip etme.";
+      levelInstructions = "ORTA SEVİYE: Kesinlikle 50 ile 90 kelime arasında yaz. Cümle yapısında birleşik cümleler ve sıfat tamlamaları kullan. Odak noktan: Olay örgüsünü takip etme.";
     } else if (selectedLevel === '3') {
-      levelInstructions = "ZOR SEVİYE: Kesinlikle 45 ile 70 kelime arasında yaz. Neden-sonuç ilişkisi içeren paragraflar kurgula. Odak noktan: Çıkarım yapma ve detayları yakalama.";
+      levelInstructions = "ZOR SEVİYE: Kesinlikle 90 ile 140 kelime arasında yaz. Neden-sonuç ilişkisi içeren paragraflar kurgula. Odak noktan: Çıkarım yapma ve detayları yakalama.";
     }
 
     const prompt = `Sen dünyanın en iyi çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: "${topic}". 
@@ -285,7 +294,6 @@ export default function App() {
     }
   };
 
-  // YENİ: Yapay Zeka ile Ödev Üretme Fonksiyonu
   const handleGenerateHomeworkAI = async () => {
     if (!hwTopic) { showTeacherMessage("⚠️ Lütfen bir ödev konusu yazın."); return; }
     setIsGeneratingHw(true);
@@ -449,7 +457,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-fuchsia-200 font-sans flex flex-col relative pt-8 pb-12">
-      {/* Profil Düğmesi */}
       {!['teacher-login', 'teacher'].includes(view) && (
         <button onClick={() => setShowProfileModal(true)} className="absolute top-4 left-4 flex items-center gap-3 bg-white/95 p-2 pr-6 rounded-full shadow-xl border-4 border-white z-50">
            <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-sky-100 text-2xl">
@@ -459,7 +466,6 @@ export default function App() {
         </button>
       )}
 
-      {/* Ana İçerik */}
       <div className="flex-1 w-full px-4">
         
         {view === 'student-setup' && !isGeneratingStory && (
@@ -493,7 +499,7 @@ export default function App() {
                    </div>
                    <input type="text" value={customTopic} onChange={e=>setCustomTopic(e.target.value)} className="w-full p-4 border-4 border-sky-200 rounded-xl mb-4 font-bold" placeholder="Veya başka bir şey yaz..." />
                    
-                   <label className="block text-lg font-black text-sky-800 mb-2">Seviye:</label>
+                   <label className="block text-lg font-black text-sky-800 mb-2">Okuma Seviyesi:</label>
                    <div className="flex gap-2">
                       {[{id:'1', l:'Kolay'}, {id:'2', l:'Orta'}, {id:'3', l:'Zor'}].map(lvl => (
                         <button key={lvl.id} onClick={() => setLevel(lvl.id)} className={`flex-1 py-3 rounded-xl font-black ${level === lvl.id ? 'bg-amber-400 text-amber-900' : 'bg-white text-sky-700'}`}>{lvl.l}</button>
@@ -612,12 +618,45 @@ export default function App() {
                   </select>
                 </div>
 
+                {/* Öğrenci Gelişim Grafiği (Sadece öğrenci seçiliyse görünür) */}
+                {selectedStudentForProgress && (
+                  <div className="bg-white p-6 rounded-2xl border-4 border-emerald-100 mb-6 shadow-sm">
+                    <h4 className="font-black text-emerald-800 mb-6 text-center">Okuma Hızı Gelişim Grafiği (WPM)</h4>
+                    <div className="flex items-end justify-center gap-4 h-48 mt-4">
+                       {[...stats].filter(r => r.name === selectedStudentForProgress).reverse().map((row, idx) => {
+                          const allWpm = stats.filter(r => r.name === selectedStudentForProgress).map(s => s.wpm);
+                          const maxWpm = Math.max(...allWpm, 50);
+                          const heightPct = Math.min((row.wpm / maxWpm) * 100, 100);
+                          return (
+                            <div key={idx} className="flex flex-col items-center gap-2 w-16 group relative">
+                               <span className="font-bold text-sm text-emerald-600 opacity-0 group-hover:opacity-100 absolute -top-8 bg-emerald-100 px-2 py-1 rounded transition-opacity">{row.wpm}</span>
+                               <div className="w-full bg-emerald-400 rounded-t-md transition-all hover:bg-emerald-500 cursor-pointer" style={{ height: `${heightPct}%`, minHeight: '10%' }}></div>
+                               <span className="text-[10px] font-bold text-slate-400 truncate w-full text-center">{row.date?.split(' ')[0]}</span>
+                            </div>
+                          )
+                       })}
+                       {stats.filter(r => r.name === selectedStudentForProgress).length === 0 && (
+                         <div className="flex items-center justify-center w-full h-full text-emerald-600 font-bold">Grafik oluşturulacak veri yok.</div>
+                       )}
+                    </div>
+                  </div>
+                )}
+
                 {selectedStudentForProgress ? (
                   <div className="space-y-4">
                     <h3 className="text-2xl font-black text-emerald-600 mb-4">📈 {selectedStudentForProgress} - Geçmiş Okumaları</h3>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left bg-emerald-50 rounded-2xl">
-                        <thead><tr className="border-b-4 border-emerald-100"><th className="p-4">Tarih</th><th className="p-4">Konu</th><th className="p-4 text-center">Hız (wpm)</th><th className="p-4 text-center">Skor</th></tr></thead>
+                        <thead>
+                           <tr className="border-b-4 border-emerald-100">
+                             <th className="p-4">Tarih</th>
+                             <th className="p-4">Konu</th>
+                             <th className="p-4 text-center">Hız (wpm)</th>
+                             <th className="p-4 text-center">Skor</th>
+                             <th className="p-4 text-center">Ses Kaydı</th>
+                             <th className="p-4 text-center">İşlem</th>
+                           </tr>
+                        </thead>
                         <tbody>
                           {stats.filter(r => r.name === selectedStudentForProgress).map(row => (
                             <tr key={row.id} className="border-b-2 border-white font-bold text-emerald-900">
@@ -625,10 +664,18 @@ export default function App() {
                               <td className="p-4">{row.interest}</td>
                               <td className="p-4 text-center">{row.wpm}</td>
                               <td className="p-4 text-center">{row.compScore}/2</td>
+                              <td className="p-4 text-center">
+                                {row.audioUrl ? <audio src={row.audioUrl} controls className="h-8 w-full max-w-[150px] mx-auto" /> : <span className="text-slate-400 text-sm">Yok</span>}
+                              </td>
+                              <td className="p-4 text-center">
+                                <button onClick={() => handleDeleteStat(row.id)} className="bg-rose-100 text-rose-600 p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-colors" title="Kaydı Sil">
+                                  <X size={18} />
+                                </button>
+                              </td>
                             </tr>
                           ))}
                           {stats.filter(r => r.name === selectedStudentForProgress).length === 0 && (
-                            <tr><td colSpan="4" className="p-4 text-center text-emerald-600 font-bold">Henüz okuma kaydı yok.</td></tr>
+                            <tr><td colSpan="6" className="p-4 text-center text-emerald-600 font-bold">Henüz okuma kaydı yok.</td></tr>
                           )}
                         </tbody>
                       </table>
@@ -637,15 +684,35 @@ export default function App() {
                 ) : (
                   <div className="overflow-x-auto">
                      <table className="w-full text-left bg-emerald-50 rounded-2xl">
-                       <thead><tr className="border-b-4 border-emerald-100"><th className="p-4">İsim</th><th className="p-4">Konu</th><th className="p-4 text-center">Hız</th><th className="p-4 text-center">Skor</th></tr></thead>
+                       <thead>
+                         <tr className="border-b-4 border-emerald-100">
+                           <th className="p-4">İsim</th>
+                           <th className="p-4">Konu</th>
+                           <th className="p-4 text-center">Hız (wpm)</th>
+                           <th className="p-4 text-center">Skor</th>
+                           <th className="p-4 text-center">Ses Kaydı</th>
+                           <th className="p-4 text-center">İşlem</th>
+                         </tr>
+                       </thead>
                        <tbody>
                          {stats.map(row => (
                            <tr key={row.id} className="border-b-2 border-white font-bold text-emerald-900">
-                             <td className="p-4">{row.name}</td><td className="p-4">{row.interest}</td><td className="p-4 text-center">{row.wpm}</td><td className="p-4 text-center">{row.compScore}/2</td>
+                             <td className="p-4">{row.name}</td>
+                             <td className="p-4">{row.interest}</td>
+                             <td className="p-4 text-center">{row.wpm}</td>
+                             <td className="p-4 text-center">{row.compScore}/2</td>
+                             <td className="p-4 text-center">
+                               {row.audioUrl ? <audio src={row.audioUrl} controls className="h-8 w-full max-w-[150px] mx-auto" /> : <span className="text-slate-400 text-sm">Yok</span>}
+                             </td>
+                             <td className="p-4 text-center">
+                               <button onClick={() => handleDeleteStat(row.id)} className="bg-rose-100 text-rose-600 p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-colors" title="Kaydı Sil">
+                                 <X size={18} />
+                               </button>
+                             </td>
                            </tr>
                          ))}
                          {stats.length === 0 && (
-                            <tr><td colSpan="4" className="p-4 text-center text-emerald-600 font-bold">Henüz hiç okuma yapılmadı.</td></tr>
+                            <tr><td colSpan="6" className="p-4 text-center text-emerald-600 font-bold">Henüz hiç okuma yapılmadı.</td></tr>
                          )}
                        </tbody>
                      </table>
@@ -693,10 +760,8 @@ export default function App() {
               </div>
             )}
 
-            {/* YENİ: Gelişmiş Ödev Paneli */}
             {teacherTab === 'homework' && (
               <div className="space-y-6">
-                {/* Yapay Zeka Ödev Üretici */}
                 <div className="bg-fuchsia-50 p-6 rounded-2xl border-4 border-fuchsia-100 flex flex-wrap gap-4 items-center">
                    <h3 className="w-full text-xl font-black text-fuchsia-800 mb-2">🤖 Yapay Zeka ile Ödev Üret</h3>
                    <input type="text" placeholder="Ödev Konusu (Örn: Uzaylı Dostlar)" value={hwTopic} onChange={e=>setHwTopic(e.target.value)} className="flex-1 p-3 border-4 border-fuchsia-200 rounded-xl font-bold" />
@@ -710,15 +775,12 @@ export default function App() {
                    </button>
                 </div>
 
-                {/* Metin Alanı */}
                 <div>
                    <label className="block text-lg font-black text-emerald-800 mb-2">Okuma Metni:</label>
                    <textarea value={hwForm.text} onChange={e => setHwForm({...hwForm, text: e.target.value})} className="w-full p-4 border-4 border-emerald-200 rounded-2xl h-40 font-bold" placeholder="Okuma metnini buraya yazın veya yapay zekaya ürettirin..." />
                 </div>
                 
-                {/* Sorular Alanı */}
                 <div className="grid md:grid-cols-2 gap-6">
-                   {/* Soru 1 */}
                    <div className="bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100 space-y-3">
                       <label className="font-black text-emerald-800">Soru 1:</label>
                       <input type="text" value={hwForm.q1} onChange={e=>setHwForm({...hwForm, q1: e.target.value})} className="w-full p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="Soru cümlesi..." />
@@ -735,7 +797,6 @@ export default function App() {
                       </select>
                    </div>
                    
-                   {/* Soru 2 */}
                    <div className="bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100 space-y-3">
                       <label className="font-black text-emerald-800">Soru 2:</label>
                       <input type="text" value={hwForm.q2} onChange={e=>setHwForm({...hwForm, q2: e.target.value})} className="w-full p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="Soru cümlesi..." />
