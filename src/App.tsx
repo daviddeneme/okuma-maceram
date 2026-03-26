@@ -92,6 +92,9 @@ export default function App() {
   const [teacherPassword, setTeacherPassword] = useState('');
   const [passwordError, setPasswordError] = useState(false);
 
+  // YENİ: Hecematik Durumu
+  const [showHeceler, setShowHeceler] = useState(false);
+
   useEffect(() => {
     const initAuth = async () => {
       try { await signInAnonymously(auth); } catch (error) { console.error("Auth error:", error); }
@@ -232,26 +235,6 @@ export default function App() {
     } catch (e) { showTeacherMessage("❌ Hata."); }
   };
 
-  const handleAvatarChange = async (ava) => {
-    setStudentAvatar(ava);
-    if (savedProfile && user) {
-      const newProfile = { ...savedProfile, avatar: ava };
-      setSavedProfile(newProfile);
-      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), newProfile, { merge: true });
-    }
-  };
-
-  const handleAvatarUpload = (e) => {
-    const file = e.target.files[0];
-    if (file && file.size <= 1000000) { 
-      const reader = new FileReader();
-      reader.onloadend = () => handleAvatarChange(reader.result); 
-      reader.readAsDataURL(file);
-    } else if (file) {
-      setLoginError("Lütfen daha küçük boyutlu bir fotoğraf seçin."); setTimeout(() => setLoginError(''), 4000);
-    }
-  };
-
   const callGeminiAPI = async (topic, selectedLevel) => {
     const apiKey = EXTERNAL_GEMINI_API_KEY; 
     if (!apiKey) throw new Error("API Anahtarı bulunamadı.");
@@ -369,7 +352,7 @@ export default function App() {
   };
 
   const startReadingSession = async (currentInterest, currentLevel, isHomework) => {
-    setInterest(currentInterest); setLevel(currentLevel); setAnswers({}); setHasRetried(false); setAudioUrl(null); setIsReadingFinished(false);
+    setInterest(currentInterest); setLevel(currentLevel); setAnswers({}); setHasRetried(false); setAudioUrl(null); setIsReadingFinished(false); setShowHeceler(false);
     if (isHomework) {
       setStoryData(activeHomework); setView('reading-ready');
     } else {
@@ -446,6 +429,54 @@ export default function App() {
     const newResult = { name: studentName, avatar: studentAvatar, interest: interest, level: level, words: tempStats.words, timeSeconds: tempStats.timeSeconds, wpm: tempStats.wpm, compScore: correctCount, audioUrl: audioUrl || null, aiEvaluation, streakAchieved: currentStreak, date: new Date().toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }), timestamp: serverTimestamp() };
     setReadingResult(newResult); setIsEvaluating(false); setView('result');
     try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'stats'), newResult); } catch (e) {}
+  };
+
+  // YENİ: Türkçe Heceleme Fonksiyonu
+  const renderStoryText = () => {
+    if (!showHeceler) return storyData?.text;
+    
+    return storyData.text.split(/(\s+)/).map((wordOrSpace, idx) => {
+       if (!wordOrSpace.trim()) return <span key={idx}>{wordOrSpace}</span>; 
+       
+       const match = wordOrSpace.match(/^([^a-zA-ZğüşıöçĞÜŞİÖÇ]*)([a-zA-ZğüşıöçĞÜŞİÖÇ]+)([^a-zA-ZğüşıöçĞÜŞİÖÇ]*)$/);
+       if (!match) return <span key={idx}>{wordOrSpace}</span>; 
+       
+       const before = match[1];
+       const cleanWord = match[2];
+       const after = match[3];
+       
+       const sesliler = 'aeıioöuüAEIİOÖUÜ';
+       let heceler = [];
+       let kelimeKopya = cleanWord;
+       
+       while (kelimeKopya.length > 0) {
+         let sesliIndex = -1;
+         for (let i = kelimeKopya.length - 1; i >= 0; i--) {
+           if (sesliler.includes(kelimeKopya[i])) { sesliIndex = i; break; }
+         }
+         if (sesliIndex === -1) {
+           if (heceler.length > 0) heceler[0] = kelimeKopya + heceler[0];
+           else heceler.unshift(kelimeKopya);
+           break;
+         }
+         let heceBaslangici = sesliIndex;
+         if (sesliIndex > 0 && !sesliler.includes(kelimeKopya[sesliIndex - 1])) {
+           heceBaslangici = sesliIndex - 1;
+         }
+         heceler.unshift(kelimeKopya.substring(heceBaslangici));
+         kelimeKopya = kelimeKopya.substring(0, heceBaslangici);
+       }
+       
+       return (
+         <span key={idx}>
+           {before}
+           {heceler.map((hece, hIdx) => (
+             <span key={hIdx} className={hIdx % 2 === 0 ? "text-rose-500" : "text-slate-800"}>{hece}</span>
+           ))}
+           {after}
+         </span>
+       );
+    });
   };
 
   return (
@@ -543,8 +574,17 @@ export default function App() {
 
         {view === 'reading-active' && (
           <div className="max-w-4xl mx-auto mt-12 space-y-8">
-             <div className="bg-white p-10 rounded-[3rem] shadow-2xl border-8 border-sky-200">
-                <p className="text-xl md:text-3xl leading-relaxed md:leading-[4rem] font-bold text-slate-800 whitespace-pre-wrap">{storyData.text}</p>
+             <div className="bg-white p-6 md:p-10 rounded-[3rem] shadow-2xl border-8 border-sky-200 relative mt-8">
+                {/* YENİ: Hecematik Butonu */}
+                <div className="absolute -top-6 right-6">
+                    <button onClick={() => setShowHeceler(!showHeceler)} className={`px-4 py-2 md:px-6 md:py-3 rounded-full font-black flex items-center gap-2 shadow-lg transition-colors ${showHeceler ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                      <Sparkles size={20} />
+                      HECEMATİK {showHeceler ? 'AÇIK' : 'KAPALI'}
+                    </button>
+                </div>
+                <p className="text-xl md:text-3xl leading-relaxed md:leading-[4rem] font-bold text-slate-800 whitespace-pre-wrap mt-4">
+                   {renderStoryText()}
+                </p>
              </div>
              {!isReadingFinished && <button onClick={finishReading} className="w-full bg-emerald-500 text-white py-6 rounded-full text-4xl font-black shadow-lg">BİTİRDİM! 🎉</button>}
              
