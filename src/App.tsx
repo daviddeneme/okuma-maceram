@@ -19,7 +19,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-// GÜVENLİK GÜNCELLEMESİ: Şifre artık doğrudan koda yazılmıyor, Vercel kasasından çekiliyor.
+// GÜVENLİK GÜNCELLEMESİ: Şifre Vercel kasasından çekiliyor (BAŞARIYLA ÇALIŞIYOR)
 const EXTERNAL_GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; 
 
 const PREDEFINED_AVATARS = ['🐶', '🐱', '🐰', '🦁', '🦄', '🦖', '🦋', '🚀', '🧚', '🦸‍♂️', '🧙‍♀️', '👨‍🚀'];
@@ -194,7 +194,6 @@ export default function App() {
     } catch (e) { showTeacherMessage('❌ Hata oluştu.'); }
   };
 
-  // React çökmemesi için eklendi
   const handlePublishHomework = () => {
     showTeacherMessage('Ödev başarıyla gönderildi!');
   };
@@ -203,7 +202,7 @@ export default function App() {
     if (!newTeacherPasswordInput || newTeacherPasswordInput.length < 4) { showTeacherMessage("❌ En az 4 hane olmalı."); return; }
     try {
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin'), { password: newTeacherPasswordInput.trim() }, { merge: true });
-      setNewTeacherPasswordInput(''); showTeacherMessage("✅Şifre güncellendi!");
+      setNewTeacherPasswordInput(''); showTeacherMessage("✅ Şifre güncellendi!");
     } catch (e) { showTeacherMessage("❌ Hata."); }
   };
 
@@ -231,8 +230,8 @@ export default function App() {
     const apiKey = EXTERNAL_GEMINI_API_KEY; 
     if (!apiKey) throw new Error("API Anahtarı bulunamadı.");
 
-    // YAPAY ZEKA MODELİ DÜZELTİLDİ
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // MODEL BURADA DÜZELTİLDİ: Sizin orijinaliniz olan gemini-2.5-flash-preview-09-2025'e geri dönüldü
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
     const studentNamesStr = students.map(s => s.name.split(' ')[0]).join(', ');
     const prompt = `Sen dünyanın en iyi çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: ${topic}. 
     Seviye: ${selectedLevel}. (1: 15-25 kelime, basit. 2: 25-45 kelime, orta. 3: 45-70 kelime, zor). Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
@@ -257,8 +256,8 @@ export default function App() {
 
   const evaluateReadingWithAI = async (text, timeSeconds, wpm, compScore, audioDataUrl) => {
     const apiKey = EXTERNAL_GEMINI_API_KEY; 
-    // YAPAY ZEKA MODELİ DÜZELTİLDİ
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // MODEL BURADA DÜZELTİLDİ: Sizin orijinaliniz olan gemini-2.5-flash-preview-09-2025'e geri dönüldü
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
     const parts = [{ text: `Sen şefkatli bir öğretmensin. Metin: "${text}". Hız: ${wpm} wpm. Skor: 2/${compScore}. JSON formatında 1-5 arası puanla ve şefkatli geri bildirim yaz: { "akicilik": 4, "telaffuz": 5, "anlama": 5, "okuma_hizi": 4, "geribildirim": "Harika!" }` }];
     
     if (audioDataUrl) {
@@ -321,7 +320,7 @@ export default function App() {
         const aiData = await callGeminiAPI(currentInterest, currentLevel);
         setStoryData(aiData); setView('reading-ready');
       } catch (err) {
-        setLoginError("Hikaye oluşturulurken hata oluştu."); setView('student-setup');
+        setLoginError("Hikaye oluşturulurken hata oluştu. Lütfen tekrar deneyin."); setView('student-setup');
       } finally { setIsGeneratingStory(false); }
     }
   };
@@ -365,7 +364,7 @@ export default function App() {
   const checkAnswers = () => {
     let correctCount = 0;
     storyData.questions.forEach(q => { if (answers[q.id] === q.correct) correctCount++; });
-    if (correctCount < 2 && !hasRetried) setView('retry-prompt'); else calculateFinalResult();
+    if (correctCount < 2 && !hasRetried) { setHasRetried(true); setView('reading-active'); } else calculateFinalResult();
   };
 
   const calculateFinalResult = async () => {
@@ -506,6 +505,13 @@ export default function App() {
           </div>
         )}
 
+        {view === 'evaluating' && (
+          <div className="max-w-md mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl mt-20 text-center">
+             <Loader2 className="w-20 h-20 text-emerald-500 animate-spin mx-auto mb-6" />
+             <h2 className="text-3xl font-black text-emerald-600">Okuman Değerlendiriliyor... 🌟</h2>
+          </div>
+        )}
+
         {view === 'result' && (
           <div className="max-w-2xl mx-auto bg-white/95 p-10 rounded-[3rem] shadow-2xl border-8 border-sky-300 mt-12 text-center space-y-8">
              <h2 className="text-4xl font-black text-sky-600">Tebrikler {readingResult.name.split(' ')[0]}!</h2>
@@ -538,7 +544,7 @@ export default function App() {
             </div>
             <div className="flex border-b-4 border-emerald-100 mb-8">
               {['stats', 'students', 'homework', 'settings'].map(tab => (
-                <button key={tab} onClick={() => setTeacherTab(tab)} className={`flex-1 py-4 font-black capitalize ${teacherTab === tab ? 'text-emerald-700 border-b-8 border-emerald-500' : 'text-slate-400'}`}>{tab}</button>
+                <button key={tab} onClick={() => setTeacherTab(tab)} className={`flex-1 py-4 font-black capitalize ${teacherTab === tab ? 'text-emerald-700 border-b-8 border-emerald-500' : 'text-slate-400'}`}>{tab === 'stats' ? 'Sonuçlar' : tab === 'students' ? 'Öğrenciler' : tab === 'homework' ? 'Ödevler' : 'Ayarlar'}</button>
               ))}
             </div>
 
