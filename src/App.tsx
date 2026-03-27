@@ -31,6 +31,12 @@ const DEFAULT_CLASS_LIST = [
   'MİRAÇ YILMAZÇELİK', 'SENA MUNGAN', 'TALHA LEVENT', 'UMUT EROL'
 ];
 
+const EYE_GYM_TEXTS = {
+  '1': "Kedi süt içti. Köpek havladı. Kuş uçtu. Fare kaçtı. Güneş açtı. Çiçek açtı. Ali top oynadı. Ayşe kitap okudu. Zil çaldı. Ders bitti. Çocuklar güldü. Elma çok tatlı. Su çok soğuk. Gökyüzü mavi. Bulutlar beyaz.",
+  '2': "Sabah erkenden uyandım. Yüzümü yıkadım ve kahvaltımı yaptım. Annem çok güzel krep yapmıştı. Sütümü içtikten sonra çantamı hazırladım. Okul yolunda arkadaşım Ali ile karşılaştım. Birlikte yürüyerek okula gittik. İlk dersimiz Türkçe idi. Öğretmenimiz bize yeni bir masal okudu.",
+  '3': "Hafta sonu ailemle birlikte ormana kamp yapmaya gittik. Babam çadırı kurarken, ben ve kardeşim etraftan kuru dallar topladık. Akşam olunca ateşin etrafında oturup şarkılar söyledik. Gökyüzündeki yıldızlar o kadar parlaktı ki, sanki elimizi uzatsak tutabilecekmişiz gibi geliyordu. Ormanın derinliklerinden baykuş sesleri duyuluyordu."
+};
+
 export default function App() {
   const [view, setView] = useState('student-setup'); 
   const [stats, setStats] = useState([]); 
@@ -41,8 +47,7 @@ export default function App() {
   const [selectedStudentForProgress, setSelectedStudentForProgress] = useState(null);
 
   const [hwForm, setHwForm] = useState({
-    text: '', q1: '', q1o1: '', q1o2: '', q1o3: '', q1c: 0,
-    q2: '', q2o1: '', q2o2: '', q2o3: '', q2c: 1
+    text: '', q1: '', q1o1: '', q1o2: '', q1o3: '', q1c: 0, q2: '', q2o1: '', q2o2: '', q2o3: '', q2c: 1
   });
 
   const [studentName, setStudentName] = useState('');
@@ -93,11 +98,14 @@ export default function App() {
   const [showHeceler, setShowHeceler] = useState(false);
   const [foundWords, setFoundWords] = useState([]);
 
-  // YENİ: Göz Jimnastiği State'leri
-  const [eyeGymSpeed, setEyeGymSpeed] = useState(600); // Tavşan hızı varsayılan
+  // YENİ: Animasyon Kontrolleri
+  const [showBadgeAnimation, setShowBadgeAnimation] = useState(false);
+  const [badgeInCorner, setBadgeInCorner] = useState(false);
+
+  // DÜZELTME: Göz Jimnastiği Hızları Yavaşlatıldı
+  const [eyeGymSpeed, setEyeGymSpeed] = useState(1000); 
   const [eyeGymWords, setEyeGymWords] = useState([]);
   const [eyeGymIndex, setEyeGymIndex] = useState(-1);
-  const [isGeneratingEyeGym, setIsGeneratingEyeGym] = useState(false);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -155,15 +163,23 @@ export default function App() {
     fetchProfile();
   }, [user]);
 
-  // YENİ: Göz Jimnastiği Zamanlayıcısı
   useEffect(() => {
-    if (view === 'eye-gym-active' && eyeGymWords.length > 0 && eyeGymIndex < eyeGymWords.length) {
-      const timer = setTimeout(() => {
-        setEyeGymIndex(prev => prev + 1);
+    let interval = null;
+    if (view === 'eye-gym-active' && eyeGymWords.length > 0) {
+      interval = setInterval(() => {
+        setEyeGymIndex((prev) => {
+          if (prev >= eyeGymWords.length) {
+            clearInterval(interval);
+            return prev;
+          }
+          return prev + 1;
+        });
       }, eyeGymSpeed);
-      return () => clearTimeout(timer);
     }
-  }, [view, eyeGymWords, eyeGymIndex, eyeGymSpeed]);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [view, eyeGymWords, eyeGymSpeed]);
 
   const showTeacherMessage = (msg) => { setTeacherMsg(msg); setTimeout(() => setTeacherMsg(''), 4000); };
 
@@ -194,6 +210,16 @@ export default function App() {
       try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stats', id)); showTeacherMessage('🗑️ Kayıt başarıyla silindi.'); } 
       catch (e) { showTeacherMessage('❌ Kayıt silinemedi.'); }
     }
+  };
+
+  const handleLoadDefaultClass = async () => {
+    showTeacherMessage('⏳ Yükleniyor...');
+    try {
+      for (const name of DEFAULT_CLASS_LIST) {
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name, password: '1234' });
+      }
+      showTeacherMessage('✅ 1/A Listesi yüklendi!');
+    } catch (e) { showTeacherMessage('❌ Hata oluştu.'); }
   };
 
   const handlePublishHomework = async () => {
@@ -229,52 +255,43 @@ export default function App() {
     }
   };
 
-  const callGeminiAPI = async (topic, selectedLevel, isEyeGym = false) => {
+  const callGeminiAPI = async (topic, selectedLevel) => {
     const apiKey = EXTERNAL_GEMINI_API_KEY; 
     if (!apiKey) throw new Error("API Anahtarı bulunamadı.");
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const studentNamesStr = students.map(s => s.name.split(' ')[0]).join(', ');
     
-    let payload;
+    let levelInstructions = selectedLevel === '1' ? "KOLAY SEVİYE: Kesinlikle 30 ile 50 kelime arasında yaz." : selectedLevel === '2' ? "ORTA SEVİYE: Kesinlikle 50 ile 90 kelime arasında yaz." : "ZOR SEVİYE: Kesinlikle 90 ile 140 kelime arasında yaz.";
+    
+    const prompt = `Sen Türkçe dilini kusursuz, son derece doğal ve insansı bir şekilde kullanan ödüllü bir çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: "${topic}". 
+    Şu kurallara SIKI SIKIYA UYMALISIN:
+    ${levelInstructions}
+    EDEBI KALİTE: Cümleler birbirini kusursuzca tamamlamalı, sürükleyici ve doğal bir Türkçe ile yazılmalıdır.
+    HAZİNE AVI: Hikayenin içine belli bir kategoriye ait (örneğin 3 farklı renk, 3 farklı hayvan ismi veya 3 meyve) gizli kelimeler yerleştir.
+    Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
+    
+    YALNIZCA JSON formatında cevap ver (targetWords içine kelimenin metinde geçen TAMP TAMINA ek almış halini küçük harfle yaz):
+    { 
+      "text": "Hikaye metni buraya...", 
+      "questions": [ { "id": 1, "q": "Soru 1?", "options": ["A", "B", "C"], "correct": 0 }, { "id": 2, "q": "Soru 2?", "options": ["A", "B", "C"], "correct": 1 } ],
+      "treasureHunt": { "task": "Metindeki gizli hayvanları bulup tıkla!", "targetWords": ["kedi", "kuş", "köpek"] }
+    }`;
 
-    if (isEyeGym) {
-      // GÖZ JİMNASTİĞİ İÇİN ÖZEL PROMPT
-      let wordsCount = selectedLevel === '1' ? "20-30" : selectedLevel === '2' ? "30-50" : "50-80";
-      const prompt = `Sen bir hızlı okuma eğitmenisin. Konu: "${topic}". İçinde zor noktalama işaretleri olmayan, çocukların göz egzersizi yapması için akıcı, tek parça ve tam ${wordsCount} kelimelik bir metin yaz. Sadece düz metin ver.
-      YALNIZCA JSON formatında dön: { "text": "Metin buraya..." }`;
-      payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-    } else {
-      // NORMAL HİKAYE PROMPTU
-      let levelInstructions = selectedLevel === '1' ? "KOLAY SEVİYE: Kesinlikle 30 ile 50 kelime arasında yaz." : selectedLevel === '2' ? "ORTA SEVİYE: Kesinlikle 50 ile 90 kelime arasında yaz." : "ZOR SEVİYE: Kesinlikle 90 ile 140 kelime arasında yaz.";
-      
-      const prompt = `Sen Türkçe dilini kusursuz, son derece doğal ve insansı bir şekilde kullanan ödüllü bir çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: "${topic}". 
-      Şu kurallara SIKI SIKIYA UYMALISIN:
-      ${levelInstructions}
-      EDEBI KALİTE: Cümleler birbirini kusursuzca tamamlamalı, sürükleyici ve doğal bir Türkçe ile yazılmalıdır.
-      HAZİNE AVI: Hikayenin içine belli bir kategoriye ait (örneğin 3 farklı renk, 3 farklı hayvan ismi veya 3 meyve) gizli kelimeler yerleştir.
-      Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
-      
-      YALNIZCA JSON formatında cevap ver (targetWords içine kelimenin metinde geçen TAMP TAMINA ek almış halini küçük harfle yaz):
-      { 
-        "text": "Hikaye metni buraya...", 
-        "questions": [ { "id": 1, "q": "Soru 1?", "options": ["A", "B", "C"], "correct": 0 }, { "id": 2, "q": "Soru 2?", "options": ["A", "B", "C"], "correct": 1 } ],
-        "treasureHunt": { "task": "Metindeki gizli hayvanları bulup tıkla!", "targetWords": ["kedi", "kuş", "köpek"] }
-      }`;
-      payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-    }
+    const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
 
-    let delays = [1000, 2000, 4000]; 
-    for (let i = 0; i < 3; i++) {
-      try {
-        const response = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
-        if (!response.ok) throw new Error("API hatası");
-        const data = await response.json();
-        return JSON.parse(data.candidates[0].content.parts[0].text);
-      } catch (err) {
-        if (i === 2) throw err;
-        await new Promise(r => setTimeout(r, delays[i]));
+    try {
+      const response = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
+      if (!response.ok) {
+         const errorText = await response.text();
+         console.error("❌ GOOGLE API HATASI DETAYI:", response.status, errorText);
+         throw new Error(`API Hatası: ${response.status}`);
       }
+      const data = await response.json();
+      return JSON.parse(data.candidates[0].content.parts[0].text);
+    } catch (err) {
+      console.error("❌ YAPAY ZEKA FONKSİYON HATASI:", err);
+      throw err;
     }
   };
 
@@ -337,22 +354,18 @@ export default function App() {
     await startReadingSession('Sınıf Ödevi', 'Ödev', true);
   };
 
-  const handleStartEyeGym = async () => {
-    if (!validateStudent()) return;
-    const combinedInterest = [...selectedTopics, customTopic].filter(t => t.trim() !== '').join(', ');
-    if (!combinedInterest) { setLoginError('Lütfen bir konu seç.'); return; }
-    setIsGeneratingEyeGym(true); setLoginError('');
-    try {
-      const aiData = await callGeminiAPI(combinedInterest, level, true);
-      const words = aiData.text.split(/\s+/).filter(w => w.trim().length > 0);
-      setEyeGymWords(words); setEyeGymIndex(0); setView('eye-gym-active');
-    } catch (err) {
-      setLoginError("Sunucu şuan çok yoğun daha sonra tekrar deneyiniz.");
-    } finally { setIsGeneratingEyeGym(false); }
+  const handleStartEyeGym = () => {
+    setLoginError('');
+    const text = EYE_GYM_TEXTS[level] || EYE_GYM_TEXTS['1'];
+    const words = text.split(/\s+/).filter(w => w.trim().length > 0);
+    setEyeGymWords(words); 
+    setEyeGymIndex(0); 
+    setView('eye-gym-active');
   };
 
   const startReadingSession = async (currentInterest, currentLevel, isHomework) => {
     setInterest(currentInterest); setLevel(currentLevel); setAnswers({}); setHasRetried(false); setAudioUrl(null); setIsReadingFinished(false); setShowHeceler(false); setFoundWords([]);
+    setShowBadgeAnimation(false); setBadgeInCorner(false);
     if (isHomework) {
       setStoryData(activeHomework); setView('reading-ready');
     } else {
@@ -443,10 +456,21 @@ export default function App() {
        const isTarget = targetWordsLower.includes(lowerCleanWord);
        const isFound = foundWords.includes(lowerCleanWord);
 
-       // YENİ MANTIK: Tıklama sadece okuma bitince (isReadingFinished = true) çalışır.
        const handleWordClick = () => {
          if (!isReadingFinished) return; 
-         if (isTarget && !isFound) { setFoundWords(prev => [...prev, lowerCleanWord]); }
+         if (isTarget && !isFound) { 
+            const newFoundWords = [...foundWords, lowerCleanWord];
+            setFoundWords(newFoundWords); 
+            
+            // YENİ: Başarı Animasyonu Tetikleyici
+            if (storyData.treasureHunt && newFoundWords.length === storyData.treasureHunt.targetWords.length) {
+               setShowBadgeAnimation(true);
+               setTimeout(() => {
+                 setShowBadgeAnimation(false);
+                 setBadgeInCorner(true);
+               }, 3000);
+            }
+         }
        };
 
        let wordContainerClass = "";
@@ -484,18 +508,40 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-fuchsia-200 font-sans flex flex-col relative pt-8 pb-12">
+      
+      {/* Sol Üst Köşe Profil ve Rozet Alanı */}
       {!['teacher-login', 'teacher'].includes(view) && (
-        <button onClick={() => setShowProfileModal(true)} className="absolute top-4 left-4 flex items-center gap-3 bg-white/95 p-2 pr-6 rounded-full shadow-xl border-4 border-white z-50">
-           <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-sky-100 text-2xl">
-             {savedProfile?.avatar?.startsWith('data') ? <img src={savedProfile.avatar} className="w-full h-full object-cover"/> : (savedProfile?.avatar || studentAvatar)}
-           </div>
-           <span className="font-black text-sky-800 text-xl">{savedProfile ? savedProfile.studentName.split(' ')[0] : 'Giriş'}</span>
-        </button>
+        <div className="absolute top-4 left-4 flex items-center gap-4 z-50">
+           <button onClick={() => setShowProfileModal(true)} className="flex items-center gap-3 bg-white/95 p-2 pr-6 rounded-full shadow-xl border-4 border-white">
+              <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-sky-100 text-2xl">
+                {savedProfile?.avatar?.startsWith('data') ? <img src={savedProfile.avatar} className="w-full h-full object-cover"/> : (savedProfile?.avatar || studentAvatar)}
+              </div>
+              <span className="font-black text-sky-800 text-xl">{savedProfile ? savedProfile.studentName.split(' ')[0] : 'Giriş'}</span>
+           </button>
+           
+           {/* Uçup Gelen Rozet Slotu */}
+           {badgeInCorner && (
+              <div className="animate-pulse drop-shadow-2xl">
+                 <span className="text-5xl">🕵️‍♂️</span>
+              </div>
+           )}
+        </div>
+      )}
+
+      {/* Ekran Ortasındaki Dev Başarı Animasyonu */}
+      {showBadgeAnimation && (
+         <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none bg-white/40 backdrop-blur-sm">
+            <div className="bg-white p-12 rounded-[3rem] shadow-2xl flex flex-col items-center animate-bounce border-8 border-amber-300">
+               <span className="text-9xl mb-4">🕵️‍♂️</span>
+               <h2 className="text-4xl font-black text-amber-600">Görevi Tamamladın!</h2>
+               <p className="text-2xl font-bold text-amber-800 mt-2">Rozetin profiline eklendi.</p>
+            </div>
+         </div>
       )}
 
       <div className="flex-1 w-full px-4">
         
-        {view === 'student-setup' && !isGeneratingStory && !isGeneratingEyeGym && (
+        {view === 'student-setup' && !isGeneratingStory && (
           <div className="max-w-xl mx-auto bg-white/95 p-8 rounded-[3rem] shadow-2xl border-8 border-sky-300 mt-20 relative text-center">
              <button onClick={()=>setView('teacher-login')} className="absolute top-4 right-4 w-12 h-12 bg-emerald-400 rounded-full flex items-center justify-center text-white shadow-lg z-10"><BarChart3 /></button>
              
@@ -554,52 +600,48 @@ export default function App() {
 
                 <div className="space-y-4">
                    <button onClick={handleStartFreeReading} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-2xl font-black border-b-8 border-sky-700 shadow-xl">HİKAYEMİ OLUŞTUR ✨</button>
-                   {/* YENİ: Göz Jimnastiği Odası Girişi */}
-                   <button onClick={() => { setLoginError(''); setView('eye-gym-setup'); }} className="w-full bg-indigo-500 text-white py-4 rounded-2xl text-xl font-black border-b-8 border-indigo-700 shadow-xl flex items-center justify-center gap-3"><Eye /> GÖZ JİMNASTİĞİ YAP</button>
+                   <button onClick={() => { if (!validateStudent()) return; setLoginError(''); setView('eye-gym-setup'); }} className="w-full bg-indigo-500 text-white py-4 rounded-2xl text-xl font-black border-b-8 border-indigo-700 shadow-xl flex items-center justify-center gap-3"><Eye /> GÖZ JİMNASTİĞİ YAP</button>
                 </div>
              </div>
           </div>
         )}
 
-        {/* YENİ: Göz Jimnastiği Hazırlık Ekranı */}
-        {view === 'eye-gym-setup' && !isGeneratingEyeGym && (
+        {view === 'eye-gym-setup' && (
            <div className="max-w-xl mx-auto bg-white/95 p-8 rounded-[3rem] shadow-2xl border-8 border-indigo-300 mt-20 text-center">
               <h2 className="text-4xl font-black text-indigo-600 mb-8 flex items-center justify-center gap-3"><Eye /> Göz Jimnastiği</h2>
               <div className="bg-indigo-50 p-6 rounded-2xl border-4 border-indigo-100 text-left space-y-6">
                  <div>
                     <label className="block text-lg font-black text-indigo-800 mb-2">Hızını Seç:</label>
                     <div className="grid grid-cols-3 gap-2">
-                       <button onClick={() => setEyeGymSpeed(1000)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 1000 ? 'bg-emerald-400 text-emerald-900' : 'bg-white text-indigo-700'}`}>
+                       <button onClick={() => setEyeGymSpeed(2000)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 2000 ? 'bg-emerald-400 text-emerald-900' : 'bg-white text-indigo-700'}`}>
                          <span className="text-3xl">🐢</span> Yavaş
                        </button>
-                       <button onClick={() => setEyeGymSpeed(600)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 600 ? 'bg-amber-400 text-amber-900' : 'bg-white text-indigo-700'}`}>
+                       <button onClick={() => setEyeGymSpeed(1000)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 1000 ? 'bg-amber-400 text-amber-900' : 'bg-white text-indigo-700'}`}>
                          <span className="text-3xl">🐇</span> Normal
                        </button>
-                       <button onClick={() => setEyeGymSpeed(300)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 300 ? 'bg-rose-400 text-rose-900' : 'bg-white text-indigo-700'}`}>
+                       <button onClick={() => setEyeGymSpeed(600)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 600 ? 'bg-rose-400 text-rose-900' : 'bg-white text-indigo-700'}`}>
                          <span className="text-3xl">🐆</span> Hızlı
                        </button>
                     </div>
                  </div>
-                 {loginError && <p className="text-rose-500 font-bold mt-3 text-center">{loginError}</p>}
               </div>
               <button onClick={handleStartEyeGym} className="w-full bg-indigo-500 text-white py-6 rounded-2xl text-2xl font-black border-b-8 border-indigo-700 shadow-xl mt-8">EGZERSİZE BAŞLA 🚀</button>
               <button onClick={() => setView('student-setup')} className="mt-6 text-indigo-400 font-bold">Vazgeç ve Geri Dön</button>
            </div>
         )}
 
-        {(isGeneratingStory || isGeneratingEyeGym) && (
+        {isGeneratingStory && (
           <div className="max-w-md mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl mt-20 text-center">
              <Loader2 className="w-20 h-20 text-sky-500 animate-spin mx-auto mb-6" />
-             <h2 className="text-3xl font-black text-sky-600">Hazırlanıyor...</h2>
+             <h2 className="text-3xl font-black text-sky-600">Metin Yazılıyor...</h2>
           </div>
         )}
 
-        {/* YENİ: Göz Jimnastiği Aktif Ekranı */}
         {view === 'eye-gym-active' && (
           <div className="max-w-4xl mx-auto mt-20 text-center flex flex-col items-center justify-center min-h-[50vh]">
              {eyeGymIndex < eyeGymWords.length ? (
                <div className="bg-white p-12 md:p-20 rounded-[3rem] shadow-2xl border-8 border-indigo-200 w-full flex items-center justify-center h-64 md:h-96">
-                  <span className="text-5xl md:text-8xl font-black text-indigo-700 tracking-tight transition-all duration-100">{eyeGymWords[eyeGymIndex]}</span>
+                  <span className="text-6xl md:text-9xl font-black text-indigo-700 tracking-tight transition-all duration-100">{eyeGymWords[eyeGymIndex]}</span>
                </div>
              ) : (
                <div className="bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-emerald-300 w-full space-y-6">
@@ -623,9 +665,28 @@ export default function App() {
         )}
 
         {view === 'reading-active' && (
-          <div className="max-w-4xl mx-auto mt-12 space-y-8">
+          <div className="max-w-4xl mx-auto mt-12 space-y-8 relative">
+             
+             {/* YENİ: Yapışkan Görev Banner'ı */}
+             {isReadingFinished && storyData?.treasureHunt && (
+               <div className="sticky top-4 z-40 bg-amber-100/95 backdrop-blur-md border-4 border-amber-300 p-4 md:p-6 rounded-[2rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-10 transition-all">
+                  <div className="flex items-center gap-4">
+                     <div className="bg-white w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center shadow-inner">
+                        <Search className="text-amber-500 w-8 h-8 md:w-10 md:h-10" />
+                     </div>
+                     <div>
+                        <h4 className="font-black text-amber-900 text-xl md:text-2xl">Dedektif Görevi!</h4>
+                        <p className="font-bold text-amber-700 text-md md:text-lg">{storyData.treasureHunt.task}</p>
+                     </div>
+                  </div>
+                  <div className="bg-white px-6 py-2 rounded-2xl border-4 border-amber-200 font-black text-amber-600 text-3xl md:text-4xl text-center shadow-inner">
+                     {foundWords.length} / {storyData.treasureHunt.targetWords.length}
+                  </div>
+               </div>
+             )}
+
              <div className="bg-white p-6 md:p-10 rounded-[3rem] shadow-2xl border-8 border-sky-200 relative mt-8">
-                <div className="absolute -top-6 right-6">
+                <div className="absolute -top-6 right-6 z-10">
                     <button onClick={() => setShowHeceler(!showHeceler)} className={`px-4 py-2 md:px-6 md:py-3 rounded-full font-black flex items-center gap-2 shadow-lg transition-colors ${showHeceler ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
                       <Sparkles size={20} />
                       HECEMATİK {showHeceler ? 'AÇIK' : 'KAPALI'}
@@ -636,29 +697,10 @@ export default function App() {
                 </p>
              </div>
 
-             {!isReadingFinished && <button onClick={finishReading} className="w-full bg-emerald-500 text-white py-6 rounded-full text-4xl font-black shadow-lg">BİTİRDİM! 🎉</button>}
+             {!isReadingFinished && <button onClick={finishReading} className="w-full bg-emerald-500 text-white py-6 rounded-full text-4xl font-black shadow-lg hover:bg-emerald-400 active:scale-95 transition-all">BİTİRDİM! 🎉</button>}
              
              {isReadingFinished && (
                <div className="space-y-8">
-                 {/* YENİ: BİTİRDİKTEN SONRA AÇILAN HAZİNE AVI KARTI */}
-                 {storyData?.treasureHunt && (
-                   <div className="bg-amber-100 border-4 border-amber-300 p-8 rounded-[2rem] shadow-lg flex flex-col md:flex-row items-center justify-between gap-6 animate-pulse">
-                      <div className="flex items-center gap-6">
-                         <div className="bg-white w-20 h-20 rounded-full flex items-center justify-center shadow-inner">
-                            <Search className="text-amber-500 w-12 h-12" />
-                         </div>
-                         <div>
-                            <h4 className="font-black text-amber-900 text-3xl mb-2">Dedektif Olma Zamanı!</h4>
-                            <p className="font-bold text-amber-700 text-xl">{storyData.treasureHunt.task} Tıklayarak bul!</p>
-                         </div>
-                      </div>
-                      <div className="bg-white px-8 py-4 rounded-3xl border-4 border-amber-200 font-black text-amber-600 text-5xl text-center">
-                         {foundWords.length} / {storyData.treasureHunt.targetWords.length}
-                         {foundWords.length === storyData.treasureHunt.targetWords.length && <div className="text-sm mt-2 text-emerald-600">Rozet Açıldı!</div>}
-                      </div>
-                   </div>
-                 )}
-
                  <div className="bg-white p-8 rounded-[2rem] border-8 border-fuchsia-300 space-y-8">
                    <h2 className="text-3xl font-black text-fuchsia-600 text-center">Soruları Cevapla 🧠</h2>
                    {storyData.questions.map((q, idx) => (
@@ -666,12 +708,12 @@ export default function App() {
                        <h3 className="text-2xl font-black text-fuchsia-900 mb-4">{idx+1}. {q.q}</h3>
                        <div className="flex flex-col gap-3">
                           {q.options.map((opt, optIdx) => (
-                            <button key={optIdx} onClick={() => setAnswers({...answers, [q.id]: optIdx})} className={`p-4 rounded-xl font-bold text-lg text-left ${answers[q.id] === optIdx ? 'bg-emerald-500 text-white' : 'bg-white text-fuchsia-700'}`}>{opt}</button>
+                            <button key={optIdx} onClick={() => setAnswers({...answers, [q.id]: optIdx})} className={`p-4 rounded-xl font-bold text-lg text-left transition-all ${answers[q.id] === optIdx ? 'bg-emerald-500 text-white shadow-md scale-[1.02]' : 'bg-white text-fuchsia-700 hover:bg-fuchsia-100'}`}>{opt}</button>
                           ))}
                        </div>
                      </div>
                    ))}
-                   <button onClick={checkAnswers} disabled={Object.keys(answers).length < 2} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-3xl font-black border-b-8 border-sky-700">KARNEMİ GÖSTER 🏆</button>
+                   <button onClick={checkAnswers} disabled={Object.keys(answers).length < 2} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-3xl font-black border-b-8 border-sky-700 disabled:opacity-50 disabled:border-b-0 disabled:translate-y-2 hover:bg-sky-400 transition-all">KARNEMİ GÖSTER 🏆</button>
                  </div>
                </div>
              )}
@@ -687,9 +729,6 @@ export default function App() {
 
         {view === 'result' && (
           <div className="max-w-2xl mx-auto bg-white/95 p-10 rounded-[3rem] shadow-2xl border-8 border-sky-300 mt-12 text-center space-y-8">
-             {readingResult.badge && (
-                <div className="text-8xl animate-bounce mb-4 text-center">{readingResult.badge}</div>
-             )}
              <h2 className="text-4xl font-black text-sky-600">Tebrikler {readingResult.name.split(' ')[0]}!</h2>
              <div className="bg-indigo-50 p-6 rounded-2xl font-bold text-indigo-900 text-lg">"{readingResult.aiEvaluation.geribildirim}"</div>
              <div className="grid grid-cols-2 gap-4">
@@ -738,28 +777,58 @@ export default function App() {
                   </select>
                 </div>
 
+                {/* YENİ: ÇİZGİ GRAFİĞİ (Line Chart) */}
                 {selectedStudentForProgress && (
-                  <div className="bg-white p-6 rounded-2xl border-4 border-emerald-100 mb-6 shadow-sm">
-                    <h4 className="font-black text-emerald-800 mb-6 text-center">Okuma Hızı Gelişim Grafiği (WPM)</h4>
-                    <div className="flex items-end justify-center gap-4 h-48 mt-4">
-                       {[...stats].filter(r => r.name === selectedStudentForProgress).reverse().map((row, idx) => {
-                          const studentStats = stats.filter(r => r.name === selectedStudentForProgress);
-                          const allWpm = studentStats.map(s => Number(s.wpm) || 0);
-                          const maxWpm = Math.max(...allWpm, 50);
-                          const currentWpm = Number(row.wpm) || 0;
-                          const heightPct = Math.min((currentWpm / maxWpm) * 100, 100);
-                          return (
-                            <div key={idx} className="flex flex-col items-center gap-2 w-16 group relative">
-                               <span className="font-bold text-sm text-emerald-600 opacity-0 group-hover:opacity-100 absolute -top-8 bg-emerald-100 px-2 py-1 rounded transition-opacity">{currentWpm}</span>
-                               <div className="w-full bg-emerald-400 rounded-t-md transition-all hover:bg-emerald-500 cursor-pointer" style={{ height: `${heightPct}%`, minHeight: '10%' }}></div>
-                               <span className="text-[10px] font-bold text-slate-400 truncate w-full text-center">{row.date?.split(' ')[0]}</span>
-                            </div>
-                          )
-                       })}
-                       {stats.filter(r => r.name === selectedStudentForProgress).length === 0 && (
-                         <div className="flex items-center justify-center w-full h-full text-emerald-600 font-bold">Grafik oluşturulacak veri yok.</div>
-                       )}
-                    </div>
+                  <div className="bg-white p-6 rounded-2xl border-4 border-emerald-100 mb-6 shadow-sm overflow-x-auto">
+                    <h4 className="font-black text-emerald-800 mb-8 text-center">Okuma Hızı Gelişim Grafiği (WPM)</h4>
+                    {(() => {
+                      const studentStats = [...stats].filter(r => r.name === selectedStudentForProgress).reverse();
+                      if (studentStats.length === 0) return <div className="text-center text-emerald-600 font-bold">Grafik oluşturulacak veri yok.</div>;
+                      
+                      const allWpm = studentStats.map(s => Number(s.wpm) || 0);
+                      const maxWpm = Math.max(...allWpm, 50) + 10; // Biraz üst boşluk
+                      const chartHeight = 200;
+                      const pointWidth = 80; // Noktalar arası mesafe
+                      const chartWidth = Math.max(studentStats.length * pointWidth, 600);
+                      
+                      // Çizgi için koordinatları hesapla
+                      const points = studentStats.map((row, idx) => {
+                         const x = idx * pointWidth + 40; 
+                         const y = chartHeight - ((Number(row.wpm) || 0) / maxWpm) * chartHeight;
+                         return `${x},${y}`;
+                      }).join(" ");
+
+                      return (
+                         <div className="w-full overflow-x-auto pb-4">
+                           <svg width={chartWidth} height={chartHeight + 40} className="mx-auto block">
+                             {/* Arka Plan Kılavuz Çizgileri */}
+                             <line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#e2e8f0" strokeWidth="2" />
+                             <line x1="0" y1={chartHeight/2} x2={chartWidth} y2={chartHeight/2} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="5,5" />
+                             
+                             {/* Ana Çizgi */}
+                             <polyline points={points} fill="none" stroke="#10b981" strokeWidth="4" strokeLinejoin="round" className="drop-shadow-sm" />
+                             
+                             {/* Noktalar ve Yazılar */}
+                             {studentStats.map((row, idx) => {
+                                const x = idx * pointWidth + 40;
+                                const y = chartHeight - ((Number(row.wpm) || 0) / maxWpm) * chartHeight;
+                                return (
+                                  <g key={idx} className="group">
+                                    {/* Etkileşim için geniş görünmez alan */}
+                                    <circle cx={x} cy={y} r="20" fill="transparent" className="cursor-pointer" />
+                                    {/* Görünür Nokta */}
+                                    <circle cx={x} cy={y} r="6" fill="#10b981" stroke="#fff" strokeWidth="2" className="group-hover:r-[8px] transition-all cursor-pointer shadow-sm" />
+                                    {/* Okuma Hızı (WPM) Yazısı */}
+                                    <text x={x} y={y - 15} textAnchor="middle" className="text-[14px] font-black fill-emerald-700 opacity-0 group-hover:opacity-100 transition-opacity">{row.wpm}</text>
+                                    {/* Tarih Yazısı */}
+                                    <text x={x} y={chartHeight + 25} textAnchor="middle" className="text-[10px] font-bold fill-slate-400">{row.date?.split(' ')[0]}</text>
+                                  </g>
+                                );
+                             })}
+                           </svg>
+                         </div>
+                      );
+                    })()}
                   </div>
                 )}
 
