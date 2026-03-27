@@ -98,12 +98,11 @@ export default function App() {
   const [showHeceler, setShowHeceler] = useState(false);
   const [foundWords, setFoundWords] = useState([]);
 
-  // YENİ: Animasyon Kontrolleri
   const [showBadgeAnimation, setShowBadgeAnimation] = useState(false);
   const [badgeInCorner, setBadgeInCorner] = useState(false);
 
-  // DÜZELTME: Göz Jimnastiği Hızları Yavaşlatıldı
-  const [eyeGymSpeed, setEyeGymSpeed] = useState(1000); 
+  // GÖZ JİMNASTİĞİ DÜZELTMELERİ
+  const [eyeGymSpeed, setEyeGymSpeed] = useState(2000); 
   const [eyeGymWords, setEyeGymWords] = useState([]);
   const [eyeGymIndex, setEyeGymIndex] = useState(-1);
 
@@ -165,21 +164,15 @@ export default function App() {
 
   useEffect(() => {
     let interval = null;
-    if (view === 'eye-gym-active' && eyeGymWords.length > 0) {
+    if (view === 'eye-gym-active' && eyeGymWords.length > 0 && eyeGymIndex < eyeGymWords.length) {
       interval = setInterval(() => {
-        setEyeGymIndex((prev) => {
-          if (prev >= eyeGymWords.length) {
-            clearInterval(interval);
-            return prev;
-          }
-          return prev + 1;
-        });
+        setEyeGymIndex((prev) => prev + 1);
       }, eyeGymSpeed);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [view, eyeGymWords, eyeGymSpeed]);
+  }, [view, eyeGymWords, eyeGymSpeed, eyeGymIndex]);
 
   const showTeacherMessage = (msg) => { setTeacherMsg(msg); setTimeout(() => setTeacherMsg(''), 4000); };
 
@@ -227,7 +220,7 @@ export default function App() {
     showTeacherMessage('⏳ Ödev gönderiliyor...');
     try {
       const homeworkData = {
-        text: hwForm.text,
+        text: hwForm.text.replace(/\*/g, ''), 
         questions: [
           { id: 1, q: hwForm.q1, options: [hwForm.q1o1, hwForm.q1o2, hwForm.q1o3], correct: Number(hwForm.q1c) },
           { id: 2, q: hwForm.q2, options: [hwForm.q2o1, hwForm.q2o2, hwForm.q2o3], correct: Number(hwForm.q2c) }
@@ -268,7 +261,8 @@ export default function App() {
     Şu kurallara SIKI SIKIYA UYMALISIN:
     ${levelInstructions}
     EDEBI KALİTE: Cümleler birbirini kusursuzca tamamlamalı, sürükleyici ve doğal bir Türkçe ile yazılmalıdır.
-    HAZİNE AVI: Hikayenin içine belli bir kategoriye ait (örneğin 3 farklı renk, 3 farklı hayvan ismi veya 3 meyve) gizli kelimeler yerleştir.
+    HAZİNE AVI: Hikayenin içine belli bir kategoriye ait (örneğin 3 farklı renk, 3 farklı hayvan ismi veya 3 meyve) gizli kelimeler yerleştir. 
+    DİKKAT KESİNLİKLE YASAK: Gizli kelimeleri veya metindeki herhangi bir kelimeyi ** (yıldız) veya başka bir işaretle ASLA VURGULAMA! Metin tamamen düz yazı olsun.
     Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
     
     YALNIZCA JSON formatında cevap ver (targetWords içine kelimenin metinde geçen TAMP TAMINA ek almış halini küçük harfle yaz):
@@ -288,7 +282,9 @@ export default function App() {
          throw new Error(`API Hatası: ${response.status}`);
       }
       const data = await response.json();
-      return JSON.parse(data.candidates[0].content.parts[0].text);
+      const parsedData = JSON.parse(data.candidates[0].content.parts[0].text);
+      if(parsedData.text) parsedData.text = parsedData.text.replace(/\*/g, '');
+      return parsedData;
     } catch (err) {
       console.error("❌ YAPAY ZEKA FONKSİYON HATASI:", err);
       throw err;
@@ -462,12 +458,13 @@ export default function App() {
             const newFoundWords = [...foundWords, lowerCleanWord];
             setFoundWords(newFoundWords); 
             
-            // YENİ: Başarı Animasyonu Tetikleyici
+            // GEÇİCİ ROZET ANİMASYONU
             if (storyData.treasureHunt && newFoundWords.length === storyData.treasureHunt.targetWords.length) {
                setShowBadgeAnimation(true);
                setTimeout(() => {
                  setShowBadgeAnimation(false);
                  setBadgeInCorner(true);
+                 setTimeout(() => setBadgeInCorner(false), 5000); // 5 saniye sonra yok olur
                }, 3000);
             }
          }
@@ -509,7 +506,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-fuchsia-200 font-sans flex flex-col relative pt-8 pb-12">
       
-      {/* Sol Üst Köşe Profil ve Rozet Alanı */}
       {!['teacher-login', 'teacher'].includes(view) && (
         <div className="absolute top-4 left-4 flex items-center gap-4 z-50">
            <button onClick={() => setShowProfileModal(true)} className="flex items-center gap-3 bg-white/95 p-2 pr-6 rounded-full shadow-xl border-4 border-white">
@@ -519,16 +515,14 @@ export default function App() {
               <span className="font-black text-sky-800 text-xl">{savedProfile ? savedProfile.studentName.split(' ')[0] : 'Giriş'}</span>
            </button>
            
-           {/* Uçup Gelen Rozet Slotu */}
            {badgeInCorner && (
-              <div className="animate-pulse drop-shadow-2xl">
+              <div className="animate-pulse drop-shadow-2xl transition-all">
                  <span className="text-5xl">🕵️‍♂️</span>
               </div>
            )}
         </div>
       )}
 
-      {/* Ekran Ortasındaki Dev Başarı Animasyonu */}
       {showBadgeAnimation && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none bg-white/40 backdrop-blur-sm">
             <div className="bg-white p-12 rounded-[3rem] shadow-2xl flex flex-col items-center animate-bounce border-8 border-amber-300">
@@ -583,7 +577,8 @@ export default function App() {
                         <button key={t} onClick={() => setSelectedTopics(p => p.includes(t) ? p.filter(x=>x!==t) : [...p, t])} className={`px-4 py-2 rounded-full font-bold ${selectedTopics.includes(t) ? 'bg-fuchsia-500 text-white' : 'bg-white text-sky-700'}`}>{t}</button>
                       ))}
                    </div>
-                   <input type="text" value={customTopic} onChange={e=>setCustomTopic(e.target.value)} className="w-full p-4 border-4 border-sky-200 rounded-xl mb-4 font-bold" placeholder="Veya başka bir şey yaz..." />
+                   {/* DÜZELTME: Placeholder değiştirildi */}
+                   <input type="text" value={customTopic} onChange={e=>setCustomTopic(e.target.value)} className="w-full p-4 border-4 border-sky-200 rounded-xl mb-4 font-bold" placeholder="Veya başka bir konu yaz..." />
                    
                    <label className="block text-lg font-black text-sky-800 mb-2">Okuma Seviyesi:</label>
                    <div className="flex gap-2">
@@ -606,23 +601,29 @@ export default function App() {
           </div>
         )}
 
+        {/* YENİ: MANUEL HIZ AYARLI GÖZ JİMNASTİĞİ PANELİ */}
         {view === 'eye-gym-setup' && (
            <div className="max-w-xl mx-auto bg-white/95 p-8 rounded-[3rem] shadow-2xl border-8 border-indigo-300 mt-20 text-center">
               <h2 className="text-4xl font-black text-indigo-600 mb-8 flex items-center justify-center gap-3"><Eye /> Göz Jimnastiği</h2>
               <div className="bg-indigo-50 p-6 rounded-2xl border-4 border-indigo-100 text-left space-y-6">
                  <div>
-                    <label className="block text-lg font-black text-indigo-800 mb-2">Hızını Seç:</label>
+                    <label className="block text-lg font-black text-indigo-800 mb-4">Otomatik Hız Seç:</label>
                     <div className="grid grid-cols-3 gap-2">
-                       <button onClick={() => setEyeGymSpeed(2000)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 2000 ? 'bg-emerald-400 text-emerald-900' : 'bg-white text-indigo-700'}`}>
+                       <button onClick={() => setEyeGymSpeed(3000)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 3000 ? 'bg-emerald-400 text-emerald-900' : 'bg-white text-indigo-700'}`}>
+                         <span className="text-3xl">🐌</span> Çok Yavaş
+                       </button>
+                       <button onClick={() => setEyeGymSpeed(2000)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 2000 ? 'bg-amber-400 text-amber-900' : 'bg-white text-indigo-700'}`}>
                          <span className="text-3xl">🐢</span> Yavaş
                        </button>
-                       <button onClick={() => setEyeGymSpeed(1000)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 1000 ? 'bg-amber-400 text-amber-900' : 'bg-white text-indigo-700'}`}>
+                       <button onClick={() => setEyeGymSpeed(1000)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 1000 ? 'bg-rose-400 text-rose-900' : 'bg-white text-indigo-700'}`}>
                          <span className="text-3xl">🐇</span> Normal
                        </button>
-                       <button onClick={() => setEyeGymSpeed(600)} className={`p-4 rounded-xl font-black flex flex-col items-center gap-2 ${eyeGymSpeed === 600 ? 'bg-rose-400 text-rose-900' : 'bg-white text-indigo-700'}`}>
-                         <span className="text-3xl">🐆</span> Hızlı
-                       </button>
                     </div>
+                 </div>
+
+                 <div className="mt-6 p-4 bg-white rounded-xl border-4 border-indigo-200">
+                    <label className="block text-lg font-black text-indigo-800 mb-4">Veya Manuel Ayarla: {(eyeGymSpeed / 1000).toFixed(1)} saniye</label>
+                    <input type="range" min="500" max="5000" step="100" value={eyeGymSpeed} onChange={(e) => setEyeGymSpeed(Number(e.target.value))} className="w-full accent-indigo-600 h-3 rounded-lg appearance-none bg-indigo-100 cursor-pointer" />
                  </div>
               </div>
               <button onClick={handleStartEyeGym} className="w-full bg-indigo-500 text-white py-6 rounded-2xl text-2xl font-black border-b-8 border-indigo-700 shadow-xl mt-8">EGZERSİZE BAŞLA 🚀</button>
@@ -637,8 +638,13 @@ export default function App() {
           </div>
         )}
 
+        {/* YENİ: GÖZ JİMNASTİĞİ AKTİF EKRANI VE GERİ TUŞU */}
         {view === 'eye-gym-active' && (
-          <div className="max-w-4xl mx-auto mt-20 text-center flex flex-col items-center justify-center min-h-[50vh]">
+          <div className="max-w-4xl mx-auto mt-20 text-center flex flex-col items-center justify-center min-h-[50vh] relative">
+             <button onClick={() => { setView('eye-gym-setup'); setEyeGymIndex(-1); }} className="absolute -top-12 left-0 bg-white text-indigo-600 px-6 py-3 rounded-2xl font-black flex items-center gap-2 shadow-lg border-4 border-indigo-100 hover:bg-indigo-50 transition-colors">
+                <ArrowLeft /> Geri Dön
+             </button>
+
              {eyeGymIndex < eyeGymWords.length ? (
                <div className="bg-white p-12 md:p-20 rounded-[3rem] shadow-2xl border-8 border-indigo-200 w-full flex items-center justify-center h-64 md:h-96">
                   <span className="text-6xl md:text-9xl font-black text-indigo-700 tracking-tight transition-all duration-100">{eyeGymWords[eyeGymIndex]}</span>
@@ -667,7 +673,7 @@ export default function App() {
         {view === 'reading-active' && (
           <div className="max-w-4xl mx-auto mt-12 space-y-8 relative">
              
-             {/* YENİ: Yapışkan Görev Banner'ı */}
+             {/* DÜZELTME: Hazine Avı Sadece Bitirdikten Sonra Gelir */}
              {isReadingFinished && storyData?.treasureHunt && (
                <div className="sticky top-4 z-40 bg-amber-100/95 backdrop-blur-md border-4 border-amber-300 p-4 md:p-6 rounded-[2rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-10 transition-all">
                   <div className="flex items-center gap-4">
@@ -687,7 +693,9 @@ export default function App() {
 
              <div className="bg-white p-6 md:p-10 rounded-[3rem] shadow-2xl border-8 border-sky-200 relative mt-8">
                 <div className="absolute -top-6 right-6 z-10">
-                    <button onClick={() => setShowHeceler(!showHeceler)} className={`px-4 py-2 md:px-6 md:py-3 rounded-full font-black flex items-center gap-2 shadow-lg transition-colors ${showHeceler ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                    {/* YENİ: DİKKAT ÇEKİCİ HECEMATİK BUTONU */}
+                    <button onClick={() => setShowHeceler(!showHeceler)} 
+                            className={`px-4 py-2 md:px-6 md:py-3 rounded-full font-black flex items-center gap-2 transition-all duration-300 shadow-xl border-4 border-fuchsia-400 ${showHeceler ? 'bg-fuchsia-500 text-white shadow-[0_0_20px_rgba(236,72,153,0.8)]' : 'bg-fuchsia-50 text-fuchsia-600 hover:bg-fuchsia-100 animate-pulse'}`}>
                       <Sparkles size={20} />
                       HECEMATİK {showHeceler ? 'AÇIK' : 'KAPALI'}
                     </button>
@@ -777,7 +785,7 @@ export default function App() {
                   </select>
                 </div>
 
-                {/* YENİ: ÇİZGİ GRAFİĞİ (Line Chart) */}
+                {/* ÇİZGİ GRAFİĞİ */}
                 {selectedStudentForProgress && (
                   <div className="bg-white p-6 rounded-2xl border-4 border-emerald-100 mb-6 shadow-sm overflow-x-auto">
                     <h4 className="font-black text-emerald-800 mb-8 text-center">Okuma Hızı Gelişim Grafiği (WPM)</h4>
@@ -786,12 +794,11 @@ export default function App() {
                       if (studentStats.length === 0) return <div className="text-center text-emerald-600 font-bold">Grafik oluşturulacak veri yok.</div>;
                       
                       const allWpm = studentStats.map(s => Number(s.wpm) || 0);
-                      const maxWpm = Math.max(...allWpm, 50) + 10; // Biraz üst boşluk
+                      const maxWpm = Math.max(...allWpm, 50) + 10; 
                       const chartHeight = 200;
-                      const pointWidth = 80; // Noktalar arası mesafe
+                      const pointWidth = 80; 
                       const chartWidth = Math.max(studentStats.length * pointWidth, 600);
                       
-                      // Çizgi için koordinatları hesapla
                       const points = studentStats.map((row, idx) => {
                          const x = idx * pointWidth + 40; 
                          const y = chartHeight - ((Number(row.wpm) || 0) / maxWpm) * chartHeight;
@@ -801,26 +808,17 @@ export default function App() {
                       return (
                          <div className="w-full overflow-x-auto pb-4">
                            <svg width={chartWidth} height={chartHeight + 40} className="mx-auto block">
-                             {/* Arka Plan Kılavuz Çizgileri */}
                              <line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#e2e8f0" strokeWidth="2" />
                              <line x1="0" y1={chartHeight/2} x2={chartWidth} y2={chartHeight/2} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="5,5" />
-                             
-                             {/* Ana Çizgi */}
                              <polyline points={points} fill="none" stroke="#10b981" strokeWidth="4" strokeLinejoin="round" className="drop-shadow-sm" />
-                             
-                             {/* Noktalar ve Yazılar */}
                              {studentStats.map((row, idx) => {
                                 const x = idx * pointWidth + 40;
                                 const y = chartHeight - ((Number(row.wpm) || 0) / maxWpm) * chartHeight;
                                 return (
                                   <g key={idx} className="group">
-                                    {/* Etkileşim için geniş görünmez alan */}
                                     <circle cx={x} cy={y} r="20" fill="transparent" className="cursor-pointer" />
-                                    {/* Görünür Nokta */}
                                     <circle cx={x} cy={y} r="6" fill="#10b981" stroke="#fff" strokeWidth="2" className="group-hover:r-[8px] transition-all cursor-pointer shadow-sm" />
-                                    {/* Okuma Hızı (WPM) Yazısı */}
                                     <text x={x} y={y - 15} textAnchor="middle" className="text-[14px] font-black fill-emerald-700 opacity-0 group-hover:opacity-100 transition-opacity">{row.wpm}</text>
-                                    {/* Tarih Yazısı */}
                                     <text x={x} y={chartHeight + 25} textAnchor="middle" className="text-[10px] font-bold fill-slate-400">{row.date?.split(' ')[0]}</text>
                                   </g>
                                 );
