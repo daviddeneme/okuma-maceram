@@ -3,6 +3,7 @@ import { User, BookOpen, Star, Clock, Trophy, ArrowLeft, BarChart3, Rocket, Hear
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBBdIcHoWFcQCkZxqwK_CqYt4jARiLxVHE",
@@ -17,6 +18,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app); // YENİ: Ses yüklemeleri için Storage eklendi
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 const EXTERNAL_GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; 
@@ -69,6 +71,7 @@ export default function App() {
   
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false); // YENİ: Ses yükleme durumu
   
   const [hwTopic, setHwTopic] = useState('');
   const [hwLevel, setHwLevel] = useState('1');
@@ -101,8 +104,7 @@ export default function App() {
   const [showBadgeAnimation, setShowBadgeAnimation] = useState(false);
   const [badgeInCorner, setBadgeInCorner] = useState(false);
 
-  // GÖZ JİMNASTİĞİ DÜZELTMELERİ
-  const [eyeGymSpeed, setEyeGymSpeed] = useState(2000); 
+  const [eyeGymSpeed, setEyeGymSpeed] = useState(1000); 
   const [eyeGymWords, setEyeGymWords] = useState([]);
   const [eyeGymIndex, setEyeGymIndex] = useState(-1);
 
@@ -111,6 +113,19 @@ export default function App() {
       try { await signInAnonymously(auth); } catch (error) { console.error(error); }
     };
     initAuth();
+    
+    const localProfileData = localStorage.getItem('okumaMaceramProfile');
+    if (localProfileData) {
+      try {
+        const data = JSON.parse(localProfileData);
+        setStudentName(data.studentName);
+        setStudentPassword(data.studentPassword);
+        setStudentAvatar(data.avatar || '🐶');
+        setLevel(data.level || '1');
+        setRememberMe(true);
+      } catch (e) { console.error("Local profil okunamadı", e); }
+    }
+
     return onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
   }, []);
 
@@ -245,6 +260,7 @@ export default function App() {
     if (savedProfile && user) {
       const newProfile = { ...savedProfile, avatar: ava }; setSavedProfile(newProfile);
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), newProfile, { merge: true });
+      localStorage.setItem('okumaMaceramProfile', JSON.stringify(newProfile));
     }
   };
 
@@ -255,13 +271,16 @@ export default function App() {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const studentNamesStr = students.map(s => s.name.split(' ')[0]).join(', ');
     
+    const categories = ['renk', 'hayvan', 'meyve', 'aile üyesi', 'giysi', 'oyuncak', 'duygu', 'doğa (ağaç, çiçek, bulut vb.)'];
+    const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+
     let levelInstructions = selectedLevel === '1' ? "KOLAY SEVİYE: Kesinlikle 30 ile 50 kelime arasında yaz." : selectedLevel === '2' ? "ORTA SEVİYE: Kesinlikle 50 ile 90 kelime arasında yaz." : "ZOR SEVİYE: Kesinlikle 90 ile 140 kelime arasında yaz.";
     
     const prompt = `Sen Türkçe dilini kusursuz, son derece doğal ve insansı bir şekilde kullanan ödüllü bir çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: "${topic}". 
     Şu kurallara SIKI SIKIYA UYMALISIN:
     ${levelInstructions}
     EDEBI KALİTE: Cümleler birbirini kusursuzca tamamlamalı, sürükleyici ve doğal bir Türkçe ile yazılmalıdır.
-    HAZİNE AVI: Hikayenin içine belli bir kategoriye ait (örneğin 3 farklı renk, 3 farklı hayvan ismi veya 3 meyve) gizli kelimeler yerleştir. 
+    HAZİNE AVI: Hikayenin içine kesinlikle "${randomCategory}" kategorisine ait 3 farklı kelimeyi zorlama olmadan, çok doğal bir şekilde kurguya yedirerek yerleştir.
     DİKKAT KESİNLİKLE YASAK: Gizli kelimeleri veya metindeki herhangi bir kelimeyi ** (yıldız) veya başka bir işaretle ASLA VURGULAMA! Metin tamamen düz yazı olsun.
     Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
     
@@ -269,7 +288,7 @@ export default function App() {
     { 
       "text": "Hikaye metni buraya...", 
       "questions": [ { "id": 1, "q": "Soru 1?", "options": ["A", "B", "C"], "correct": 0 }, { "id": 2, "q": "Soru 2?", "options": ["A", "B", "C"], "correct": 1 } ],
-      "treasureHunt": { "task": "Metindeki gizli hayvanları bulup tıkla!", "targetWords": ["kedi", "kuş", "köpek"] }
+      "treasureHunt": { "task": "Metindeki gizli ${randomCategory.split(' (')[0]} isimlerini bulup tıkla!", "targetWords": ["kelime1", "kelime2", "kelime3"] }
     }`;
 
     const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
@@ -277,8 +296,6 @@ export default function App() {
     try {
       const response = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
       if (!response.ok) {
-         const errorText = await response.text();
-         console.error("❌ GOOGLE API HATASI DETAYI:", response.status, errorText);
          throw new Error(`API Hatası: ${response.status}`);
       }
       const data = await response.json();
@@ -329,11 +346,18 @@ export default function App() {
   };
 
   const saveProfileDataLocally = async () => {
-    if (!user || !rememberMe) return;
+    if (!rememberMe) {
+      localStorage.removeItem('okumaMaceramProfile');
+      return;
+    }
     const combinedInterest = [...selectedTopics, customTopic].filter(t => t.trim() !== '').join(', ');
     const profileData = { studentName, studentPassword, avatar: studentAvatar, interest: combinedInterest || 'Uzay', level, streak: savedProfile?.streak || 0, lastReadingDate: savedProfile?.lastReadingDate || null };
-    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), profileData);
-    setSavedProfile(profileData);
+    localStorage.setItem('okumaMaceramProfile', JSON.stringify(profileData));
+    
+    if (user) {
+      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), profileData);
+      setSavedProfile(profileData);
+    }
   };
 
   const handleStartFreeReading = async () => {
@@ -416,6 +440,23 @@ export default function App() {
   const calculateFinalResult = async () => {
     let correctCount = 0; storyData.questions.forEach(q => { if (answers[q.id] === q.correct) correctCount++; });
     setView('evaluating'); setIsEvaluating(true);
+
+    // YENİ: Firebase Storage Ses Yükleme İşlemi (Güvenli Sıkıştırma)
+    let firebaseAudioUrl = null;
+    if (audioChunksRef.current && audioChunksRef.current.length > 0) {
+        setIsUploading(true);
+        try {
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            const fileName = `audio_${studentName.replace(/\s+/g, '_')}_${Date.now()}.webm`;
+            const storageRef = ref(storage, `artifacts/${appId}/audio/${fileName}`);
+            await uploadBytes(storageRef, audioBlob);
+            firebaseAudioUrl = await getDownloadURL(storageRef);
+        } catch(e) { 
+            console.error("Ses yükleme hatası, ancak sistem devam ediyor:", e); 
+        }
+        setIsUploading(false);
+    }
+
     const aiEvaluation = await evaluateReadingWithAI(storyData.text, tempStats.timeSeconds, tempStats.wpm, correctCount, audioUrl);
     
     let currentStreak = savedProfile?.streak || 0;
@@ -429,10 +470,19 @@ export default function App() {
       const newProfile = { ...savedProfile, streak: currentStreak, lastReadingDate: todayStr };
       setSavedProfile(newProfile);
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), newProfile, { merge: true });
+      localStorage.setItem('okumaMaceramProfile', JSON.stringify(newProfile));
     }
 
     const earnedBadge = (storyData.treasureHunt && foundWords.length === storyData.treasureHunt.targetWords.length) ? '🕵️‍♂️' : '';
-    const newResult = { name: studentName, avatar: studentAvatar, interest: interest, level: level, words: tempStats.words, timeSeconds: tempStats.timeSeconds, wpm: tempStats.wpm, compScore: correctCount, badge: earnedBadge, audioUrl: audioUrl || null, aiEvaluation, streakAchieved: currentStreak, date: new Date().toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }), timestamp: serverTimestamp() };
+    
+    // YENİ: Detaylı Tarih ve Saat Verisi
+    const now = new Date();
+    const dateString = now.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const timeString = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    const fullDateTime = `${dateString} - ${timeString}`;
+
+    const newResult = { name: studentName, avatar: studentAvatar, interest: interest, level: level, words: tempStats.words, timeSeconds: tempStats.timeSeconds, wpm: tempStats.wpm, compScore: correctCount, badge: earnedBadge, audioUrl: firebaseAudioUrl || null, aiEvaluation, streakAchieved: currentStreak, date: fullDateTime, timestamp: serverTimestamp() };
+    
     setReadingResult(newResult); setIsEvaluating(false); setView('result');
     try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'stats'), newResult); } catch (e) {}
   };
@@ -458,13 +508,12 @@ export default function App() {
             const newFoundWords = [...foundWords, lowerCleanWord];
             setFoundWords(newFoundWords); 
             
-            // GEÇİCİ ROZET ANİMASYONU
             if (storyData.treasureHunt && newFoundWords.length === storyData.treasureHunt.targetWords.length) {
                setShowBadgeAnimation(true);
                setTimeout(() => {
                  setShowBadgeAnimation(false);
                  setBadgeInCorner(true);
-                 setTimeout(() => setBadgeInCorner(false), 5000); // 5 saniye sonra yok olur
+                 setTimeout(() => setBadgeInCorner(false), 5000); 
                }, 3000);
             }
          }
@@ -506,9 +555,10 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-fuchsia-200 font-sans flex flex-col relative pt-8 pb-12">
       
+      {/* Sol Üst Köşe Profil ve Rozet Alanı */}
       {!['teacher-login', 'teacher'].includes(view) && (
         <div className="absolute top-4 left-4 flex items-center gap-4 z-50">
-           <button onClick={() => setShowProfileModal(true)} className="flex items-center gap-3 bg-white/95 p-2 pr-6 rounded-full shadow-xl border-4 border-white">
+           <button onClick={() => setShowProfileModal(true)} className="flex items-center gap-3 bg-white/95 p-2 pr-6 rounded-full shadow-xl border-4 border-white hover:scale-105 transition-transform cursor-pointer">
               <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-sky-100 text-2xl">
                 {savedProfile?.avatar?.startsWith('data') ? <img src={savedProfile.avatar} className="w-full h-full object-cover"/> : (savedProfile?.avatar || studentAvatar)}
               </div>
@@ -523,12 +573,53 @@ export default function App() {
         </div>
       )}
 
+      {/* YENİ: KAPSAMLI ÖĞRENCİ PROFİL PANELİ (MODAL) */}
+      {showProfileModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-sky-900/50 backdrop-blur-sm p-4">
+           <div className="bg-white rounded-[3rem] p-8 w-full max-w-md shadow-2xl relative border-8 border-sky-200">
+              <button onClick={() => setShowProfileModal(false)} className="absolute top-4 right-4 bg-sky-100 p-2 rounded-full text-sky-600 hover:bg-sky-200"><X /></button>
+              
+              <div className="flex flex-col items-center">
+                 <div className="w-24 h-24 rounded-full bg-sky-100 text-5xl flex items-center justify-center mb-4 shadow-inner">
+                    {savedProfile?.avatar?.startsWith('data') ? <img src={savedProfile.avatar} className="w-full h-full object-cover rounded-full"/> : (savedProfile?.avatar || studentAvatar || '👤')}
+                 </div>
+                 <h2 className="text-3xl font-black text-sky-800">{savedProfile ? savedProfile.studentName : (studentName || 'Misafir Öğrenci')}</h2>
+                 <div className="flex gap-2 mt-2">
+                    <span className="bg-amber-100 text-amber-600 px-4 py-2 rounded-full font-black text-sm flex items-center gap-2 shadow-sm">
+                       <Flame size={18}/> {savedProfile?.streak || 0} Gün Ateş Serisi
+                    </span>
+                 </div>
+              </div>
+              
+              <div className="mt-8 space-y-4">
+                 <div className="bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100 flex items-center justify-between">
+                    <div className="font-black text-emerald-800 text-lg">Toplam Okunan Kelime</div>
+                    <div className="text-3xl font-black text-emerald-600">
+                       {stats.filter(s => s.name === (savedProfile?.studentName || studentName)).reduce((acc, curr) => acc + (Number(curr.words) || 0), 0)}
+                    </div>
+                 </div>
+                 
+                 <div className="bg-fuchsia-50 p-4 rounded-2xl border-4 border-fuchsia-100 min-h-[120px]">
+                    <div className="font-black text-fuchsia-800 text-lg mb-3">Başarı Vitrini 🏆</div>
+                    <div className="flex flex-wrap gap-3">
+                       <div className="bg-white px-4 py-2 rounded-2xl flex items-center gap-3 shadow-sm border-2 border-fuchsia-200">
+                          <span className="text-3xl drop-shadow-md">🕵️‍♂️</span>
+                          <span className="font-black text-fuchsia-700 text-2xl">x {stats.filter(s => s.name === (savedProfile?.studentName || studentName) && s.badge).length}</span>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* YENİ: Motivasyon Odaklı Coşkulu Rozet Mesajı */}
       {showBadgeAnimation && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none bg-white/40 backdrop-blur-sm">
-            <div className="bg-white p-12 rounded-[3rem] shadow-2xl flex flex-col items-center animate-bounce border-8 border-amber-300">
-               <span className="text-9xl mb-4">🕵️‍♂️</span>
-               <h2 className="text-4xl font-black text-amber-600">Görevi Tamamladın!</h2>
-               <p className="text-2xl font-bold text-amber-800 mt-2">Rozetin profiline eklendi.</p>
+            <div className="bg-white p-12 rounded-[3rem] shadow-2xl flex flex-col items-center animate-bounce border-8 border-amber-300 text-center max-w-xl">
+               <span className="text-9xl mb-4 drop-shadow-2xl">🕵️‍♂️</span>
+               <h2 className="text-4xl font-black text-amber-600 leading-tight">İnanılmaz Bir Dikkat!</h2>
+               <p className="text-2xl font-bold text-amber-800 mt-2">Gerçek bir Okuma Dedektifi olduğunu kanıtladın! 🌟</p>
             </div>
          </div>
       )}
@@ -552,16 +643,25 @@ export default function App() {
              </div>
              
              <div className="space-y-6">
-                <div className="bg-sky-50 p-6 rounded-2xl border-4 border-sky-100 text-left">
-                   <label className="block text-lg font-black text-sky-800 mb-2">Ad Soyad:</label>
-                   <select value={studentName} onChange={e=>setStudentName(e.target.value)} className="w-full p-4 border-4 border-sky-200 rounded-xl font-bold mb-4 bg-white outline-none text-sky-800">
-                     <option value="">İsmini Seç...</option>
-                     {students.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                   </select>
-                   <label className="block text-lg font-black text-sky-800 mb-2 mt-4">Şifre:</label>
-                   <input type="password" value={studentPassword} onChange={e=>setStudentPassword(e.target.value)} className="w-full p-4 border-4 border-sky-200 rounded-xl text-center text-2xl tracking-[1em] outline-none font-bold" placeholder="••••" maxLength={4} />
-                   {loginError && <p className="text-rose-500 font-bold mt-3 text-center">{loginError}</p>}
-                </div>
+                
+                {savedProfile && rememberMe ? (
+                   <div className="bg-sky-50 p-6 rounded-2xl border-4 border-sky-100 flex flex-col items-center">
+                      <div className="text-4xl mb-2">👋</div>
+                      <h2 className="text-2xl font-black text-sky-800">Hoş geldin, {savedProfile.studentName.split(' ')[0]}!</h2>
+                      <button onClick={() => { setRememberMe(false); localStorage.removeItem('okumaMaceramProfile'); setStudentName(''); }} className="text-sm font-bold text-sky-500 mt-2 hover:underline">Farklı bir öğrenci misin? Çıkış yap.</button>
+                   </div>
+                ) : (
+                   <div className="bg-sky-50 p-6 rounded-2xl border-4 border-sky-100 text-left">
+                     <label className="block text-lg font-black text-sky-800 mb-2">Ad Soyad:</label>
+                     <select value={studentName} onChange={e=>setStudentName(e.target.value)} className="w-full p-4 border-4 border-sky-200 rounded-xl font-bold mb-4 bg-white outline-none text-sky-800">
+                       <option value="">İsmini Seç...</option>
+                       {students.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                     </select>
+                     <label className="block text-lg font-black text-sky-800 mb-2 mt-4">Şifre:</label>
+                     <input type="password" value={studentPassword} onChange={e=>setStudentPassword(e.target.value)} className="w-full p-4 border-4 border-sky-200 rounded-xl text-center text-2xl tracking-[1em] outline-none font-bold" placeholder="••••" maxLength={4} />
+                     {loginError && <p className="text-rose-500 font-bold mt-3 text-center">{loginError}</p>}
+                   </div>
+                )}
 
                 {activeHomework && (
                   <div className="p-6 bg-amber-300 rounded-[2rem] border-b-[8px] border-amber-500 shadow-xl">
@@ -577,7 +677,6 @@ export default function App() {
                         <button key={t} onClick={() => setSelectedTopics(p => p.includes(t) ? p.filter(x=>x!==t) : [...p, t])} className={`px-4 py-2 rounded-full font-bold ${selectedTopics.includes(t) ? 'bg-fuchsia-500 text-white' : 'bg-white text-sky-700'}`}>{t}</button>
                       ))}
                    </div>
-                   {/* DÜZELTME: Placeholder değiştirildi */}
                    <input type="text" value={customTopic} onChange={e=>setCustomTopic(e.target.value)} className="w-full p-4 border-4 border-sky-200 rounded-xl mb-4 font-bold" placeholder="Veya başka bir konu yaz..." />
                    
                    <label className="block text-lg font-black text-sky-800 mb-2">Okuma Seviyesi:</label>
@@ -588,10 +687,12 @@ export default function App() {
                    </div>
                 </div>
 
-                <div onClick={() => setRememberMe(!rememberMe)} className="flex items-center gap-3 bg-white p-3 rounded-xl border-4 border-sky-100 cursor-pointer justify-center">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center border-4 ${rememberMe ? 'bg-fuchsia-500 border-fuchsia-500' : 'bg-white border-sky-300'}`}>{rememberMe && <Check className="text-white" />}</div>
-                  <span className="text-sky-800 font-black">Beni bu cihazda hatırla</span>
-                </div>
+                {!savedProfile && (
+                  <div onClick={() => setRememberMe(!rememberMe)} className="flex items-center gap-3 bg-white p-3 rounded-xl border-4 border-sky-100 cursor-pointer justify-center">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center border-4 ${rememberMe ? 'bg-fuchsia-500 border-fuchsia-500' : 'bg-white border-sky-300'}`}>{rememberMe && <Check className="text-white" />}</div>
+                    <span className="text-sky-800 font-black">Beni bu cihazda hatırla</span>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                    <button onClick={handleStartFreeReading} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-2xl font-black border-b-8 border-sky-700 shadow-xl">HİKAYEMİ OLUŞTUR ✨</button>
@@ -601,7 +702,6 @@ export default function App() {
           </div>
         )}
 
-        {/* YENİ: MANUEL HIZ AYARLI GÖZ JİMNASTİĞİ PANELİ */}
         {view === 'eye-gym-setup' && (
            <div className="max-w-xl mx-auto bg-white/95 p-8 rounded-[3rem] shadow-2xl border-8 border-indigo-300 mt-20 text-center">
               <h2 className="text-4xl font-black text-indigo-600 mb-8 flex items-center justify-center gap-3"><Eye /> Göz Jimnastiği</h2>
@@ -638,7 +738,6 @@ export default function App() {
           </div>
         )}
 
-        {/* YENİ: GÖZ JİMNASTİĞİ AKTİF EKRANI VE GERİ TUŞU */}
         {view === 'eye-gym-active' && (
           <div className="max-w-4xl mx-auto mt-20 text-center flex flex-col items-center justify-center min-h-[50vh] relative">
              <button onClick={() => { setView('eye-gym-setup'); setEyeGymIndex(-1); }} className="absolute -top-12 left-0 bg-white text-indigo-600 px-6 py-3 rounded-2xl font-black flex items-center gap-2 shadow-lg border-4 border-indigo-100 hover:bg-indigo-50 transition-colors">
@@ -673,7 +772,6 @@ export default function App() {
         {view === 'reading-active' && (
           <div className="max-w-4xl mx-auto mt-12 space-y-8 relative">
              
-             {/* DÜZELTME: Hazine Avı Sadece Bitirdikten Sonra Gelir */}
              {isReadingFinished && storyData?.treasureHunt && (
                <div className="sticky top-4 z-40 bg-amber-100/95 backdrop-blur-md border-4 border-amber-300 p-4 md:p-6 rounded-[2rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-10 transition-all">
                   <div className="flex items-center gap-4">
@@ -693,7 +791,6 @@ export default function App() {
 
              <div className="bg-white p-6 md:p-10 rounded-[3rem] shadow-2xl border-8 border-sky-200 relative mt-8">
                 <div className="absolute -top-6 right-6 z-10">
-                    {/* YENİ: DİKKAT ÇEKİCİ HECEMATİK BUTONU */}
                     <button onClick={() => setShowHeceler(!showHeceler)} 
                             className={`px-4 py-2 md:px-6 md:py-3 rounded-full font-black flex items-center gap-2 transition-all duration-300 shadow-xl border-4 border-fuchsia-400 ${showHeceler ? 'bg-fuchsia-500 text-white shadow-[0_0_20px_rgba(236,72,153,0.8)]' : 'bg-fuchsia-50 text-fuchsia-600 hover:bg-fuchsia-100 animate-pulse'}`}>
                       <Sparkles size={20} />
@@ -730,20 +827,45 @@ export default function App() {
 
         {view === 'evaluating' && (
           <div className="max-w-md mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl mt-20 text-center">
-             <Loader2 className="w-20 h-20 text-emerald-500 animate-spin mx-auto mb-6" />
-             <h2 className="text-3xl font-black text-emerald-600">Okuman Değerlendiriliyor... 🌟</h2>
+             {isUploading ? (
+               <>
+                 <Loader2 className="w-24 h-24 text-sky-500 animate-spin mx-auto mb-6" />
+                 <h2 className="text-3xl font-black text-sky-600">Sesin Öğretmenine Uçuyor... 🚀</h2>
+               </>
+             ) : (
+               <>
+                 <Loader2 className="w-20 h-20 text-emerald-500 animate-spin mx-auto mb-6" />
+                 <h2 className="text-3xl font-black text-emerald-600">Okuman Değerlendiriliyor... 🌟</h2>
+               </>
+             )}
           </div>
         )}
 
         {view === 'result' && (
           <div className="max-w-2xl mx-auto bg-white/95 p-10 rounded-[3rem] shadow-2xl border-8 border-sky-300 mt-12 text-center space-y-8">
              <h2 className="text-4xl font-black text-sky-600">Tebrikler {readingResult.name.split(' ')[0]}!</h2>
-             <div className="bg-indigo-50 p-6 rounded-2xl font-bold text-indigo-900 text-lg">"{readingResult.aiEvaluation.geribildirim}"</div>
-             <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white p-4 rounded-xl shadow-sm font-bold"><span className="text-amber-500 text-2xl block">{readingResult.wpm}</span> Hız (wpm)</div>
-                <div className="bg-white p-4 rounded-xl shadow-sm font-bold"><span className="text-emerald-500 text-2xl block">{readingResult.compScore}/2</span> Doğru</div>
+             
+             {/* YENİ: Sesli Okuma Hoparlör Butonu */}
+             <div className="bg-indigo-50 p-8 rounded-3xl font-bold text-indigo-900 text-xl relative shadow-inner">
+                "{readingResult.aiEvaluation.geribildirim}"
+                <button onClick={() => {
+                    if ('speechSynthesis' in window) {
+                        window.speechSynthesis.cancel();
+                        const msg = new SpeechSynthesisUtterance(readingResult.aiEvaluation.geribildirim);
+                        msg.lang = 'tr-TR';
+                        msg.rate = 0.9;
+                        window.speechSynthesis.speak(msg);
+                    } else { alert("Tarayıcınız sesli okumayı desteklemiyor."); }
+                }} className="absolute -top-6 -right-6 bg-amber-400 text-amber-900 p-4 rounded-full shadow-xl hover:bg-amber-300 transition-transform active:scale-95 animate-bounce" title="Sesli Dinle">
+                    <Volume2 size={28} />
+                </button>
              </div>
-             <button onClick={()=>{setView('student-setup')}} className="w-full bg-sky-500 text-white py-5 rounded-2xl text-2xl font-black">YENİDEN OYNA 🎮</button>
+
+             <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white p-4 rounded-xl shadow-sm font-bold"><span className="text-amber-500 text-3xl block">{readingResult.wpm}</span> Hız (wpm)</div>
+                <div className="bg-white p-4 rounded-xl shadow-sm font-bold"><span className="text-emerald-500 text-3xl block">{readingResult.compScore}/2</span> Doğru</div>
+             </div>
+             <button onClick={()=>{setView('student-setup')}} className="w-full bg-sky-500 text-white py-5 rounded-2xl text-2xl font-black shadow-lg">YENİDEN OYNA 🎮</button>
           </div>
         )}
 
@@ -785,7 +907,7 @@ export default function App() {
                   </select>
                 </div>
 
-                {/* ÇİZGİ GRAFİĞİ */}
+                {/* YENİ: SAYILARI GÖRÜNÜR ÇİZGİ GRAFİĞİ */}
                 {selectedStudentForProgress && (
                   <div className="bg-white p-6 rounded-2xl border-4 border-emerald-100 mb-6 shadow-sm overflow-x-auto">
                     <h4 className="font-black text-emerald-800 mb-8 text-center">Okuma Hızı Gelişim Grafiği (WPM)</h4>
@@ -818,14 +940,15 @@ export default function App() {
                                   <g key={idx} className="group">
                                     <circle cx={x} cy={y} r="20" fill="transparent" className="cursor-pointer" />
                                     <circle cx={x} cy={y} r="6" fill="#10b981" stroke="#fff" strokeWidth="2" className="group-hover:r-[8px] transition-all cursor-pointer shadow-sm" />
-                                    <text x={x} y={y - 15} textAnchor="middle" className="text-[14px] font-black fill-emerald-700 opacity-0 group-hover:opacity-100 transition-opacity">{row.wpm}</text>
-                                    <text x={x} y={chartHeight + 25} textAnchor="middle" className="text-[10px] font-bold fill-slate-400">{row.date?.split(' ')[0]}</text>
+                                    {/* DÜZELTME: Sayılar artık şeffaf değil, her zaman görünür! */}
+                                    <text x={x} y={y - 15} textAnchor="middle" className="text-[14px] font-black fill-emerald-700">{row.wpm}</text>
+                                    <text x={x} y={chartHeight + 25} textAnchor="middle" className="text-[10px] font-bold fill-slate-400">{row.date?.split(' - ')[0]}</text>
                                   </g>
                                 );
                              })}
                            </svg>
                          </div>
-                      );
+                       );
                     })()}
                   </div>
                 )}
@@ -837,7 +960,7 @@ export default function App() {
                       <table className="w-full text-left bg-emerald-50 rounded-2xl">
                         <thead>
                            <tr className="border-b-4 border-emerald-100">
-                             <th className="p-4">Tarih</th>
+                             <th className="p-4">Tarih - Saat</th>
                              <th className="p-4">Konu</th>
                              <th className="p-4 text-center">Hız (wpm)</th>
                              <th className="p-4 text-center">Skor</th>
@@ -847,13 +970,14 @@ export default function App() {
                         </thead>
                         <tbody>
                           {stats.filter(r => r.name === selectedStudentForProgress).map(row => (
-                            <tr key={row.id} className="border-b-2 border-white font-bold text-emerald-900">
+                            <tr key={row.id} className="border-b-2 border-white font-bold text-emerald-900 hover:bg-emerald-100/50 transition-colors">
                               <td className="p-4">{row.date || 'Belirtilmedi'}</td>
                               <td className="p-4">{row.interest}</td>
                               <td className="p-4 text-center">{row.wpm}</td>
                               <td className="p-4 text-center">{row.compScore}/2 {row.badge}</td>
                               <td className="p-4 text-center">
-                                {row.audioUrl ? <audio src={row.audioUrl} controls className="h-8 w-full max-w-[150px] mx-auto" /> : <span className="text-slate-400 text-sm">Yok</span>}
+                                {/* DÜZELTME: Firebase Cloud Url'si */}
+                                {row.audioUrl ? <audio src={row.audioUrl} controls className="h-10 w-full max-w-[200px] mx-auto shadow-sm rounded-full" /> : <span className="text-slate-400 text-sm bg-slate-100 px-3 py-1 rounded-full">Yok</span>}
                               </td>
                               <td className="p-4 text-center">
                                 <button onClick={() => handleDeleteStat(row.id)} className="bg-rose-100 text-rose-600 p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-colors" title="Kaydı Sil">
@@ -875,6 +999,7 @@ export default function App() {
                        <thead>
                          <tr className="border-b-4 border-emerald-100">
                            <th className="p-4">İsim</th>
+                           <th className="p-4">Tarih - Saat</th>
                            <th className="p-4">Konu</th>
                            <th className="p-4 text-center">Hız (wpm)</th>
                            <th className="p-4 text-center">Skor</th>
@@ -884,13 +1009,14 @@ export default function App() {
                        </thead>
                        <tbody>
                          {stats.map(row => (
-                           <tr key={row.id} className="border-b-2 border-white font-bold text-emerald-900">
+                           <tr key={row.id} className="border-b-2 border-white font-bold text-emerald-900 hover:bg-emerald-100/50 transition-colors">
                              <td className="p-4">{row.name}</td>
+                             <td className="p-4 text-sm text-emerald-700">{row.date || 'Belirtilmedi'}</td>
                              <td className="p-4">{row.interest}</td>
                              <td className="p-4 text-center">{row.wpm}</td>
                              <td className="p-4 text-center">{row.compScore}/2 {row.badge}</td>
                              <td className="p-4 text-center">
-                               {row.audioUrl ? <audio src={row.audioUrl} controls className="h-8 w-full max-w-[150px] mx-auto" /> : <span className="text-slate-400 text-sm">Yok</span>}
+                               {row.audioUrl ? <audio src={row.audioUrl} controls className="h-10 w-full max-w-[200px] mx-auto shadow-sm rounded-full" /> : <span className="text-slate-400 text-sm bg-slate-100 px-3 py-1 rounded-full">Yok</span>}
                              </td>
                              <td className="p-4 text-center">
                                <button onClick={() => handleDeleteStat(row.id)} className="bg-rose-100 text-rose-600 p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-colors" title="Kaydı Sil">
@@ -900,7 +1026,7 @@ export default function App() {
                            </tr>
                          ))}
                          {stats.length === 0 && (
-                            <tr><td colSpan="6" className="p-4 text-center text-emerald-600 font-bold">Henüz hiç okuma yapılmadı.</td></tr>
+                            <tr><td colSpan="7" className="p-4 text-center text-emerald-600 font-bold">Henüz hiç okuma yapılmadı.</td></tr>
                          )}
                        </tbody>
                      </table>
