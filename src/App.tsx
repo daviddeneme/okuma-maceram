@@ -18,7 +18,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app); // YENİ: Ses yüklemeleri için Storage eklendi
+const storage = getStorage(app); 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 const EXTERNAL_GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; 
@@ -71,7 +71,7 @@ export default function App() {
   
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
-  const [isUploading, setIsUploading] = useState(false); // YENİ: Ses yükleme durumu
+  const [isUploading, setIsUploading] = useState(false);
   
   const [hwTopic, setHwTopic] = useState('');
   const [hwLevel, setHwLevel] = useState('1');
@@ -441,7 +441,7 @@ export default function App() {
     let correctCount = 0; storyData.questions.forEach(q => { if (answers[q.id] === q.correct) correctCount++; });
     setView('evaluating'); setIsEvaluating(true);
 
-    // YENİ: Firebase Storage Ses Yükleme İşlemi (Güvenli Sıkıştırma)
+    // YENİ: Firebase Ses Yükleme (10 Saniyelik Güvenlik Paraşütü İle)
     let firebaseAudioUrl = null;
     if (audioChunksRef.current && audioChunksRef.current.length > 0) {
         setIsUploading(true);
@@ -449,10 +449,15 @@ export default function App() {
             const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
             const fileName = `audio_${studentName.replace(/\s+/g, '_')}_${Date.now()}.webm`;
             const storageRef = ref(storage, `artifacts/${appId}/audio/${fileName}`);
-            await uploadBytes(storageRef, audioBlob);
+            
+            // 10 Saniye içinde yüklenmezse iptal et (MEB engeline karşı)
+            const uploadPromise = uploadBytes(storageRef, audioBlob);
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Zaman Aşımı")), 10000));
+            
+            await Promise.race([uploadPromise, timeoutPromise]);
             firebaseAudioUrl = await getDownloadURL(storageRef);
         } catch(e) { 
-            console.error("Ses yükleme hatası, ancak sistem devam ediyor:", e); 
+            console.error("Ses yükleme hatası (İnternet engeli veya Firebase Kuralları):", e); 
         }
         setIsUploading(false);
     }
@@ -475,7 +480,6 @@ export default function App() {
 
     const earnedBadge = (storyData.treasureHunt && foundWords.length === storyData.treasureHunt.targetWords.length) ? '🕵️‍♂️' : '';
     
-    // YENİ: Detaylı Tarih ve Saat Verisi
     const now = new Date();
     const dateString = now.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const timeString = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
@@ -555,7 +559,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-fuchsia-200 font-sans flex flex-col relative pt-8 pb-12">
       
-      {/* Sol Üst Köşe Profil ve Rozet Alanı */}
       {!['teacher-login', 'teacher'].includes(view) && (
         <div className="absolute top-4 left-4 flex items-center gap-4 z-50">
            <button onClick={() => setShowProfileModal(true)} className="flex items-center gap-3 bg-white/95 p-2 pr-6 rounded-full shadow-xl border-4 border-white hover:scale-105 transition-transform cursor-pointer">
@@ -573,7 +576,6 @@ export default function App() {
         </div>
       )}
 
-      {/* YENİ: KAPSAMLI ÖĞRENCİ PROFİL PANELİ (MODAL) */}
       {showProfileModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-sky-900/50 backdrop-blur-sm p-4">
            <div className="bg-white rounded-[3rem] p-8 w-full max-w-md shadow-2xl relative border-8 border-sky-200">
@@ -613,7 +615,6 @@ export default function App() {
         </div>
       )}
 
-      {/* YENİ: Motivasyon Odaklı Coşkulu Rozet Mesajı */}
       {showBadgeAnimation && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none bg-white/40 backdrop-blur-sm">
             <div className="bg-white p-12 rounded-[3rem] shadow-2xl flex flex-col items-center animate-bounce border-8 border-amber-300 text-center max-w-xl">
@@ -845,7 +846,6 @@ export default function App() {
           <div className="max-w-2xl mx-auto bg-white/95 p-10 rounded-[3rem] shadow-2xl border-8 border-sky-300 mt-12 text-center space-y-8">
              <h2 className="text-4xl font-black text-sky-600">Tebrikler {readingResult.name.split(' ')[0]}!</h2>
              
-             {/* YENİ: Sesli Okuma Hoparlör Butonu */}
              <div className="bg-indigo-50 p-8 rounded-3xl font-bold text-indigo-900 text-xl relative shadow-inner">
                 "{readingResult.aiEvaluation.geribildirim}"
                 <button onClick={() => {
@@ -907,7 +907,6 @@ export default function App() {
                   </select>
                 </div>
 
-                {/* YENİ: SAYILARI GÖRÜNÜR ÇİZGİ GRAFİĞİ */}
                 {selectedStudentForProgress && (
                   <div className="bg-white p-6 rounded-2xl border-4 border-emerald-100 mb-6 shadow-sm overflow-x-auto">
                     <h4 className="font-black text-emerald-800 mb-8 text-center">Okuma Hızı Gelişim Grafiği (WPM)</h4>
@@ -940,7 +939,6 @@ export default function App() {
                                   <g key={idx} className="group">
                                     <circle cx={x} cy={y} r="20" fill="transparent" className="cursor-pointer" />
                                     <circle cx={x} cy={y} r="6" fill="#10b981" stroke="#fff" strokeWidth="2" className="group-hover:r-[8px] transition-all cursor-pointer shadow-sm" />
-                                    {/* DÜZELTME: Sayılar artık şeffaf değil, her zaman görünür! */}
                                     <text x={x} y={y - 15} textAnchor="middle" className="text-[14px] font-black fill-emerald-700">{row.wpm}</text>
                                     <text x={x} y={chartHeight + 25} textAnchor="middle" className="text-[10px] font-bold fill-slate-400">{row.date?.split(' - ')[0]}</text>
                                   </g>
@@ -976,7 +974,6 @@ export default function App() {
                               <td className="p-4 text-center">{row.wpm}</td>
                               <td className="p-4 text-center">{row.compScore}/2 {row.badge}</td>
                               <td className="p-4 text-center">
-                                {/* DÜZELTME: Firebase Cloud Url'si */}
                                 {row.audioUrl ? <audio src={row.audioUrl} controls className="h-10 w-full max-w-[200px] mx-auto shadow-sm rounded-full" /> : <span className="text-slate-400 text-sm bg-slate-100 px-3 py-1 rounded-full">Yok</span>}
                               </td>
                               <td className="p-4 text-center">
