@@ -1,10 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, BookOpen, Star, Clock, Trophy, ArrowLeft, BarChart3, Rocket, Heart, Zap, Volume2, Mic, Send, FileText, Check, Loader2, Sparkles, Settings, Camera, TrendingUp, Award, X, Flame, Users, Search, Eye, Lock, Unlock, Trash2, Plus, Activity, Calendar, Printer, Gift } from 'lucide-react';
+import { 
+  User, BookOpen, Star, Clock, Trophy, ArrowLeft, BarChart3, 
+  Rocket, Heart, Zap, Volume2, Mic, Send, FileText, Check, 
+  Loader2, Sparkles, Settings, Camera, TrendingUp, Award, 
+  X, Flame, Users, Search, Eye, Lock, Unlock, Trash2, Plus, 
+  Activity, Calendar, Printer, Gift 
+} from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { 
+  getFirestore, doc, setDoc, getDoc, deleteDoc, collection, 
+  addDoc, updateDoc, onSnapshot, serverTimestamp 
+} from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
+// --- FİREBASE YAPILANDIRMASI ---
 const firebaseConfig = {
   apiKey: "AIzaSyBBdIcHoWFcQCkZxqwK_CqYt4jARiLxVHE",
   authDomain: "a-ogretmen-asistani.firebaseapp.com",
@@ -23,8 +33,12 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 const EXTERNAL_GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; 
 
-const PREDEFINED_TOPICS = ['Uzay 🪐', 'Dinozor 🦖', 'Kedi 🐱', 'Araba 🏎️', 'Prenses 👑', 'Robot 🤖', 'Masal Dünyası 🧚', 'Doğa 🌳', 'Dostluk 🤝'];
+const PREDEFINED_TOPICS = [
+  'Uzay 🪐', 'Dinozor 🦖', 'Kedi 🐱', 'Araba 🏎️', 'Prenses 👑', 
+  'Robot 🤖', 'Masal Dünyası 🧚', 'Doğa 🌳', 'Dostluk 🤝'
+];
 
+// --- DİNAMİK AKADEMİ KELİME HAVUZU ---
 const WORD_POOL = {
   level1: ["Ali", "Top", "Bak", "Al", "Oya", "Işık", "Nil", "Ece", "Baba", "Anne", "Kedi", "Süt", "Elma", "Okul", "Su", "Et"],
   level2: ["Kalem", "Kitap", "Silgi", "Defter", "Sınıf", "Sıra", "Çanta", "Oyun", "Park", "Bahçe", "Çiçek", "Ağaç", "Limon", "Balon"],
@@ -39,23 +53,36 @@ const DEFAULT_CLASS_LIST = [
 ];
 
 export default function App() {
+  // --- TEMEL DURUMLAR (STATES) ---
   const [view, setView] = useState('student-setup'); 
   const [stats, setStats] = useState([]); 
   const [students, setStudents] = useState([]); 
   const [activeHomework, setActiveHomework] = useState(null);
+  
+  // Öğretmen Paneli Durumları
   const [teacherTab, setTeacherTab] = useState('radar');
   const [selectedStudentForProgress, setSelectedStudentForProgress] = useState(null);
-
   const [hwText, setHwText] = useState('');
   const [hwDeadline, setHwDeadline] = useState('');
   const [hwQuestions, setHwQuestions] = useState([{ q: '', options: ['', '', ''], correct: 0 }]);
-  
+  const [hwTopic, setHwTopic] = useState('');
+  const [hwLevel, setHwLevel] = useState('1');
+  const [isGeneratingHw, setIsGeneratingHw] = useState(false);
+  const [teacherMsg, setTeacherMsg] = useState('');
+  const [actualTeacherPassword, setActualTeacherPassword] = useState('1234'); 
+  const [newTeacherPasswordInput, setNewTeacherPasswordInput] = useState(''); 
+  const [teacherPassword, setTeacherPassword] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
+  const [newStudentName, setNewStudentName] = useState('');
+  const [newStudentPassword, setNewStudentPassword] = useState('1234');
+  const [editingPasswords, setEditingPasswords] = useState({});
+
+  // Öğrenci Profil ve Okuma Durumları
   const [studentName, setStudentName] = useState('');
   const [studentPassword, setStudentPassword] = useState('');
   const [studentAvatar, setStudentAvatar] = useState('🐶'); 
   const [showProfileModal, setShowProfileModal] = useState(false); 
   const [showTeacherStarGift, setShowTeacherStarGift] = useState(false);
-  
   const [interest, setInterest] = useState('');
   const [selectedTopics, setSelectedTopics] = useState([]);
   const [customTopic, setCustomTopic] = useState('');
@@ -67,15 +94,9 @@ export default function App() {
   const [readingResult, setReadingResult] = useState(null);
   const [hasRetried, setHasRetried] = useState(false);
   const [isReadingFinished, setIsReadingFinished] = useState(false);
-  
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  
-  const [hwTopic, setHwTopic] = useState('');
-  const [hwLevel, setHwLevel] = useState('1');
-  const [isGeneratingHw, setIsGeneratingHw] = useState(false);
-  
   const [loginError, setLoginError] = useState(''); 
   const [micError, setMicError] = useState(''); 
   const [rememberMe, setRememberMe] = useState(false);
@@ -83,26 +104,18 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [academyLevel, setAcademyLevel] = useState(1);
   const [teacherStars, setTeacherStars] = useState(0);
-
-  const [newStudentName, setNewStudentName] = useState('');
-  const [newStudentPassword, setNewStudentPassword] = useState('1234');
-  const [editingPasswords, setEditingPasswords] = useState({});
-  const [teacherMsg, setTeacherMsg] = useState('');
-  const [actualTeacherPassword, setActualTeacherPassword] = useState('1234'); 
-  const [newTeacherPasswordInput, setNewTeacherPasswordInput] = useState(''); 
   
+  // Ses ve Animasyon Durumları
   const [isRecording, setIsRecording] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null); 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
-  const [teacherPassword, setTeacherPassword] = useState('');
-  const [passwordError, setPasswordError] = useState(false);
-
   const [showHeceler, setShowHeceler] = useState(false);
   const [foundWords, setFoundWords] = useState([]);
   const [showBadgeAnimation, setShowBadgeAnimation] = useState(false);
   const [badgeInCorner, setBadgeInCorner] = useState(false);
 
+  // --- AKADEMİ DURUMLARI ---
   const [warmupTime, setWarmupTime] = useState(30);
   const [schulteGrid, setSchulteGrid] = useState([]);
   const [schulteExpected, setSchulteExpected] = useState(1);
@@ -114,232 +127,483 @@ export default function App() {
   const [metronomeBPM, setMetronomeBPM] = useState(60); 
   const [metronomeIndex, setMetronomeIndex] = useState(-1);
   const [metronomeChunks, setMetronomeChunks] = useState([]);
+  const metronomeText = "Bir varmış bir yokmuş. Küçük bir çocuk ormanda gezerken kocaman bir ağaç görmüş. Ağacın dallarında kırmızı elmalar parlıyormuş. Çocuk elmalardan birini alıp afiyetle yemiş.";
 
+  // RÜTBE İSİMLERİ (Konsept 3: Dedektiflik)
   const RANKS = [
     { lvl: 1, name: "Harf İzicisi", icon: "👣" },
     { lvl: 2, name: "Hece Kâşifi", icon: "🛶" },
     { lvl: 3, name: "Kelime Avcısı", icon: "🦅" },
     { lvl: 4, name: "Hikâye Ustası", icon: "📜" }
   ];
+
+  // --- USE EFFECTS (Bileşen Yüklemeleri ve Veritabanı Dinleyicileri) ---
   useEffect(() => {
     const initAuth = async () => {
-      try { await signInAnonymously(auth); } catch (error) {}
+      try { 
+        await signInAnonymously(auth); 
+      } catch (error) { 
+        console.error(error); 
+      }
     };
     initAuth();
-    const local = localStorage.getItem('okumaMaceramProfile');
-    if (local) {
+    
+    const localProfile = localStorage.getItem('okumaMaceramProfile');
+    if (localProfile) {
       try {
-        const d = JSON.parse(local);
-        setStudentName(d.studentName); setStudentPassword(d.studentPassword);
-        setAcademyLevel(d.academyLevel || 1); setRememberMe(true);
+        const d = JSON.parse(localProfile);
+        setStudentName(d.studentName); 
+        setStudentPassword(d.studentPassword);
+        setAcademyLevel(d.academyLevel || 1); 
+        setRememberMe(true);
       } catch (e) {}
     }
+    
     return onAuthStateChanged(auth, (u) => setUser(u));
   }, []);
 
   useEffect(() => {
     if (!user) return;
-    const sRef = collection(db, 'artifacts', appId, 'public', 'data', 'stats');
-    const uStats = onSnapshot(sRef, (snap) => {
-      const data = []; snap.forEach(d => data.push({id: d.id, ...d.data()}));
+    
+    // İstatistikleri Dinle
+    const statsRef = collection(db, 'artifacts', appId, 'public', 'data', 'stats');
+    const unsubscribeStats = onSnapshot(statsRef, (snap) => {
+      const data = []; 
+      snap.forEach(doc => data.push({id: doc.id, ...doc.data()}));
       setStats(data.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0)));
     });
-    const stRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
-    const uStudents = onSnapshot(stRef, (snap) => {
-      const data = []; snap.forEach(d => data.push({id: d.id, ...d.data()}));
+
+    // Öğrencileri Dinle
+    const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
+    const unsubscribeStudents = onSnapshot(studentsRef, (snap) => {
+      const data = []; 
+      snap.forEach(doc => data.push({id: doc.id, ...doc.data()}));
       setStudents(data.sort((a, b) => a.name.localeCompare(b.name, 'tr')));
     });
-    const hRef = doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current');
-    const uHw = onSnapshot(hRef, (snap) => {
-      if (snap.exists()) {
-        const d = snap.data();
-        if (d.deadline && new Date() > new Date(d.deadline)) { deleteDoc(hRef); setActiveHomework(null); }
-        else setActiveHomework(d);
-      } else setActiveHomework(null);
+
+    // Ödevi Dinle ve Süre Kontrolü Yap
+    const hwRef = doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current');
+    const unsubscribeHw = onSnapshot(hwRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.deadline && new Date() > new Date(data.deadline)) { 
+           deleteDoc(hwRef); 
+           setActiveHomework(null); 
+        } else { 
+           setActiveHomework(data); 
+        }
+      } else {
+        setActiveHomework(null);
+      }
     });
-    const setRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin');
-    const uSet = onSnapshot(setRef, (snap) => { if (snap.exists()) setActualTeacherPassword(snap.data().password); });
-    return () => { uStats(); uStudents(); uHw(); uSet(); };
+
+    // Öğretmen Ayarlarını Dinle
+    const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin');
+    const unsubscribeSettings = onSnapshot(settingsRef, (snap) => { 
+      if (snap.exists() && snap.data().password) {
+        setActualTeacherPassword(snap.data().password); 
+      }
+    });
+
+    return () => { 
+      unsubscribeStats(); 
+      unsubscribeStudents(); 
+      unsubscribeHw(); 
+      unsubscribeSettings(); 
+    };
   }, [user]);
 
+  // Hediye Yıldız Kontrolü (Öğrenci profiline özel)
   useEffect(() => {
     if (studentName) {
-      const m = students.find(s => s.name === studentName);
-      if (m) {
-        setTeacherStars(m.teacherStars || 0);
-        if (m.hasNewGift) {
+      const matched = students.find(s => s.name === studentName);
+      if (matched) {
+        setTeacherStars(matched.teacherStars || 0);
+        if (matched.hasNewGift) {
           setShowTeacherStarGift(true);
-          updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', m.id), { hasNewGift: false });
+          updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', matched.id), { hasNewGift: false });
         }
       }
     }
   }, [studentName, students]);
 
-  const showTeacherMessage = (m) => { setTeacherMsg(m); setTimeout(() => setTeacherMsg(''), 4000); };
+  // --- YARDIMCI FONKSİYONLAR ---
 
-  const speakInstruction = (t) => {
+  const showTeacherMessageLocal = (msg) => { 
+    setTeacherMsg(msg); 
+    setTimeout(() => setTeacherMsg(''), 4000); 
+  };
+
+  // İnsansı Seslendirme
+  const speakInstruction = (text) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      const m = new SpeechSynthesisUtterance(t);
-      m.lang = 'tr-TR'; m.rate = 0.85; m.pitch = 1.3;
-      window.speechSynthesis.speak(m);
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = 'tr-TR'; 
+      msg.rate = 0.85; 
+      msg.pitch = 1.3; // Şefkatli, ince ton
+      window.speechSynthesis.speak(msg);
     }
   };
 
-  const updateAcademyLevel = async (nl, fid = null) => {
-    if (fid) {
-       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', fid), { academyLevel: nl });
-       showTeacherMessage('✅ Seviye güncellendi!'); return;
+  // Seviye Güncelleme (Akademi Rütbesi)
+  const updateAcademyLevel = async (newLevel, forceStudentId = null) => {
+    if (forceStudentId) {
+       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', forceStudentId), { academyLevel: newLevel });
+       showTeacherMessageLocal('✅ Seviye güncellendi!'); 
+       return;
     }
-    if (nl > academyLevel) {
-      setAcademyLevel(nl);
-      const m = students.find(s => s.name === studentName);
-      if (m) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', m.id), { academyLevel: nl });
-      const local = JSON.parse(localStorage.getItem('okumaMaceramProfile') || '{}');
-      local.academyLevel = nl; localStorage.setItem('okumaMaceramProfile', JSON.stringify(local));
+    if (newLevel > academyLevel) {
+      setAcademyLevel(newLevel);
+      const matched = students.find(s => s.name === studentName);
+      if (matched) {
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', matched.id), { academyLevel: newLevel });
+      }
+      const localData = JSON.parse(localStorage.getItem('okumaMaceramProfile') || '{}');
+      localData.academyLevel = newLevel; 
+      localStorage.setItem('okumaMaceramProfile', JSON.stringify(localData));
     }
   };
 
+  // Flaş Kelime Havuzundan Seçim
   const triggerFlashWord = () => {
-    const p = flashStage === 0 ? WORD_POOL.level1 : flashStage === 1 ? WORD_POOL.level2 : WORD_POOL.level3;
-    const t = p[Math.floor(Math.random() * p.length)];
-    const o = [t, p[Math.floor(Math.random() * p.length)], p[Math.floor(Math.random() * p.length)]].sort(() => Math.random() - 0.5);
-    setCurrentFlashWord({w: t, o: o}); setIsFlashShowing(true);
+    const pool = flashStage === 0 ? WORD_POOL.level1 : flashStage === 1 ? WORD_POOL.level2 : WORD_POOL.level3;
+    const target = pool[Math.floor(Math.random() * pool.length)];
+    const options = [
+      target, 
+      pool[Math.floor(Math.random() * pool.length)], 
+      pool[Math.floor(Math.random() * pool.length)]
+    ].sort(() => Math.random() - 0.5);
+    
+    setCurrentFlashWord({w: target, o: options});
+    setIsFlashShowing(true);
     setTimeout(() => setIsFlashShowing(false), flashSpeed); 
   };
 
-  const callGeminiAPI = async (topic, sl, avgWpm, avgScore) => {
+  // Adaptif Gemini Motoru (Metin Üretimi)
+  const callGeminiAPI = async (topic, selectedLevel, avgWpm, avgScore) => {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${EXTERNAL_GEMINI_API_KEY}`;
-    const prompt = `Konu: "${topic}". Seviye: ${sl}. Öğrenci hızı ${avgWpm} WPM, skor ${avgScore}/2. 1. sınıf pedagojisine uygun hikaye, sorular ve gizli kelime bulmacası üret. JSON formatında cevap ver.`;
-    const res = await fetch(url, { method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } }) });
-    const data = await res.json(); return JSON.parse(data.candidates[0].content.parts[0].text);
+    const prompt = `Konu: "${topic}". Seviye: ${selectedLevel}. Öğrenci hızı ${avgWpm} WPM, skor ${avgScore}/2. 1. sınıf pedagojisine uygun hikaye, sorular ve gizli kelime bulmacası üret. JSON formatında cevap ver.`;
+    
+    const res = await fetch(url, { 
+      method: 'POST', 
+      body: JSON.stringify({ 
+        contents: [{ parts: [{ text: prompt }] }], 
+        generationConfig: { responseMimeType: "application/json" } 
+      }) 
+    });
+    
+    const data = await res.json(); 
+    return JSON.parse(data.candidates[0].content.parts[0].text);
   };
 
+  // Adaptif Gemini Motoru (Değerlendirme)
   const evaluateReadingWithAI = async (text, time, wpm, score, max, audio) => {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${EXTERNAL_GEMINI_API_KEY}`;
     const prompt = `Metin: "${text}". Hız: ${wpm}. Skor: ${score}/${max}. Şefkatli geri bildirim yaz. JSON: { geribildirim: "..." }`;
     try {
-      const res = await fetch(url, { method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } }) });
-      const data = await res.json(); return JSON.parse(data.candidates[0].content.parts[0].text);
-    } catch(e) { return { geribildirim: "Harika bir okuma! 🌟" }; }
-  };
-
-  const startReadingSession = async (int, lvl, isHw) => {
-    setInterest(int); setLevel(lvl); setAnswers({}); setFoundWords([]); setView('reading-ready');
-    const sStats = stats.filter(s => s.name === studentName);
-    const avgW = sStats.length > 0 ? Math.round(sStats.reduce((a, c) => a + (Number(c.wpm) || 0), 0) / sStats.length) : 0;
-    const avgS = sStats.length > 0 ? sStats.reduce((a, c) => a + (Number(c.compScore) || 0), 0) / sStats.length : 0;
-    if (isHw) setStoryData(activeHomework);
-    else {
-      setIsGeneratingStory(true);
-      try { const d = await callGeminiAPI(int, lvl, avgW, avgS); setStoryData(d); } 
-      catch (err) { setLoginError("Sunucu yoğun, sonra deneyin."); setView('student-setup'); }
-      finally { setIsGeneratingStory(false); }
+      const res = await fetch(url, { 
+        method: 'POST', 
+        body: JSON.stringify({ 
+          contents: [{ parts: [{ text: prompt }] }], 
+          generationConfig: { responseMimeType: "application/json" } 
+        }) 
+      });
+      const data = await res.json(); 
+      return JSON.parse(data.candidates[0].content.parts[0].text);
+    } catch(e) { 
+      return { geribildirim: "Harika bir okuma! 🌟" }; 
     }
   };
 
-  const beginTimer = async (rec = false) => {
-    if (rec) {
+  // Okuma Başlatma
+  const startReadingSession = async (currentInterest, currentLevel, isHomework) => {
+    setInterest(currentInterest); 
+    setLevel(currentLevel); 
+    setAnswers({}); 
+    setFoundWords([]); 
+    setView('reading-ready');
+    
+    const studentPastStats = stats.filter(s => s.name === studentName);
+    const avgW = studentPastStats.length > 0 ? Math.round(studentPastStats.reduce((a, c) => a + (Number(c.wpm) || 0), 0) / studentPastStats.length) : 0;
+    const avgS = studentPastStats.length > 0 ? studentPastStats.reduce((a, c) => a + (Number(c.compScore) || 0), 0) / studentPastStats.length : 0;
+    
+    if (isHomework) {
+      setStoryData(activeHomework);
+    } else {
+      setIsGeneratingStory(true);
+      try { 
+        const aiData = await callGeminiAPI(currentInterest, currentLevel, avgW, avgS); 
+        setStoryData(aiData); 
+      } catch (err) { 
+        setLoginError("Sunucu yoğun, sonra deneyin."); 
+        setView('student-setup'); 
+      } finally { 
+        setIsGeneratingStory(false); 
+      }
+    }
+  };
+
+  // Zamanlayıcı ve Kayıt Başlatma
+  const beginTimer = async (withRecording = false) => {
+    if (withRecording) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const mr = new MediaRecorder(stream); mediaRecorderRef.current = mr; audioChunksRef.current = [];
-        mr.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-        mr.onstop = () => { const b = new Blob(audioChunksRef.current, { type: 'audio/webm' }); const r = new FileReader(); r.readAsDataURL(b); r.onloadend = () => setAudioUrl(r.result); };
-        mr.start(); setIsRecording(true);
-      } catch (err) { setMicError("Mikrofon hatası."); }
+        const mediaRecorder = new MediaRecorder(stream); 
+        mediaRecorderRef.current = mediaRecorder; 
+        audioChunksRef.current = [];
+        
+        mediaRecorder.ondataavailable = (e) => { 
+          if (e.data.size > 0) audioChunksRef.current.push(e.data); 
+        };
+        
+        mediaRecorder.onstop = () => { 
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); 
+          const reader = new FileReader(); 
+          reader.readAsDataURL(audioBlob); 
+          reader.onloadend = () => setAudioUrl(reader.result); 
+        };
+        
+        mediaRecorder.start(); 
+        setIsRecording(true);
+      } catch (err) { 
+        setMicError("Mikrofon hatası."); 
+      }
     }
-    setStartTime(Date.now()); setView('reading-active');
+    setStartTime(Date.now()); 
+    setView('reading-active');
   };
 
+  // Okumayı Bitirme
   const finishReading = () => {
-    if (isRecording && mediaRecorderRef.current) { mediaRecorderRef.current.stop(); setIsRecording(false); }
-    const tss = (Date.now() - startTime) / 1000; const wc = storyData.text.split(/\s+/).length;
-    setTempStats({ words: wc, timeSeconds: Math.round(tss), wpm: Math.round((wc / tss) * 60) });
+    if (isRecording && mediaRecorderRef.current) { 
+      mediaRecorderRef.current.stop(); 
+      setIsRecording(false); 
+    }
+    const timeSpentSeconds = (Date.now() - startTime) / 1000; 
+    const wordCount = storyData.text.split(/\s+/).length;
+    setTempStats({ 
+      words: wordCount, 
+      timeSeconds: Math.round(timeSpentSeconds), 
+      wpm: Math.round((wordCount / timeSpentSeconds) * 60) 
+    });
     setIsReadingFinished(true); 
   };
 
+  // Cevapları Kontrol Etme
   const checkAnswers = () => {
-    let c = 0; storyData.questions.forEach(q => { if (answers[q.id] === q.correct) c++; });
-    if (c < storyData.questions.length && !hasRetried) { setHasRetried(true); setView('reading-active'); } 
-    else calculateFinalResult();
+    let correctCount = 0; 
+    storyData.questions.forEach(q => { 
+      if (answers[q.id] === q.correct) correctCount++; 
+    });
+    
+    if (correctCount < storyData.questions.length && !hasRetried) { 
+      setHasRetried(true); 
+      setView('reading-active'); 
+    } else {
+      calculateFinalResultFull();
+    }
   };
 
-  const calculateFinalResult = async () => {
-    let c = 0; storyData.questions.forEach(q => { if (answers[q.id] === q.correct) c++; });
-    setView('evaluating'); setIsEvaluating(true);
-    let fUrl = null;
+  // Nihai Sonucu ve Firebase Kaydını Hesaplama
+  const calculateFinalResultFull = async () => {
+    let correctCount = 0; 
+    storyData.questions.forEach(q => { 
+      if (answers[q.id] === q.correct) correctCount++; 
+    });
+    
+    setView('evaluating'); 
+    setIsEvaluating(true);
+    let firebaseAudioUrl = null;
+    
     if (audioChunksRef.current.length > 0) {
       setIsUploading(true);
       try {
-        const b = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const sr = ref(storage, `artifacts/${appId}/audio/${Date.now()}.webm`);
-        await uploadBytes(sr, b); fUrl = await getDownloadURL(sr);
-      } catch(e) {} setIsUploading(false);
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const storageRefParam = ref(storage, `artifacts/${appId}/audio/${Date.now()}.webm`);
+        await uploadBytes(storageRefParam, audioBlob); 
+        firebaseAudioUrl = await getDownloadURL(storageRefParam);
+      } catch(e) {} 
+      setIsUploading(false);
     }
-    const ai = await evaluateReadingWithAI(storyData.text, tempStats.timeSeconds, tempStats.wpm, c, storyData.questions.length, audioUrl);
-    const res = { name: studentName, interest: interest, level: level, words: tempStats.words, wpm: tempStats.wpm, compScore: c, maxScore: storyData.questions.length, badge: (storyData.treasureHunt && foundWords.length === storyData.treasureHunt.targetWords.length) ? '🕵️‍♂️' : '', audioUrl: fUrl, aiEvaluation: ai, date: new Date().toLocaleString('tr-TR'), timestamp: serverTimestamp() };
-    setReadingResult(res); setIsEvaluating(false); setView('result');
-    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'stats'), res);
+    
+    const aiFeedback = await evaluateReadingWithAI(
+      storyData.text, tempStats.timeSeconds, tempStats.wpm, correctCount, storyData.questions.length, audioUrl
+    );
+    
+    const newResult = { 
+      name: studentName, 
+      interest: interest, 
+      level: level, 
+      words: tempStats.words, 
+      wpm: tempStats.wpm, 
+      compScore: correctCount, 
+      maxScore: storyData.questions.length, 
+      badge: (storyData.treasureHunt && foundWords.length === storyData.treasureHunt.targetWords.length) ? '🕵️‍♂️' : '', 
+      audioUrl: firebaseAudioUrl, 
+      aiEvaluation: aiFeedback, 
+      date: new Date().toLocaleString('tr-TR'), 
+      timestamp: serverTimestamp() 
+    };
+    
+    setReadingResult(newResult); 
+    setIsEvaluating(false); 
+    setView('result');
+    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'stats'), newResult);
   };
-  const renderStoryText = () => {
+
+  // Öğretmen İşlemleri
+  const handleUpdatePassword = async (id, newPass) => {
+    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), { password: newPass });
+    showTeacherMessageLocal('✅ Şifre güncellendi!');
+  };
+
+  const handleDeleteStudent = async (id, name) => {
+    if (window.confirm(`${name} silinsin mi?`)) {
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id));
+    }
+  };
+
+  const handleAddStudent = async () => {
+    if (!newStudentName) return;
+    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { 
+      name: newStudentName, password: newStudentPassword, academyLevel: 1, teacherStars: 0 
+    });
+    setNewStudentName('');
+  };
+
+  const handleRemoveHomework = async () => {
+    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current'));
+    setActiveHomework(null);
+  };
+
+  const handlePublishHomework = async () => {
+    const homeworkData = { 
+      text: hwText, 
+      questions: hwQuestions.map((q, i) => ({ id: i + 1, q: q.q, options: q.options, correct: q.correct })), 
+      deadline: hwDeadline, 
+      timestamp: serverTimestamp() 
+    };
+    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current'), homeworkData);
+    showTeacherMessageLocal("✅ Ödev gönderildi!");
+  };
+
+  // Metin Renderlama (Hazine Avı ve Hecematik)
+  const renderStoryTextLocal = () => {
     if (!storyData || !storyData.text) return null;
     const targetWordsLower = (storyData.treasureHunt?.targetWords || []).map(w => w.toLowerCase('tr-TR'));
+    
     return storyData.text.split(/(\s+)/).map((wordOrSpace, idx) => {
        if (!wordOrSpace.trim()) return <span key={idx}>{wordOrSpace}</span>; 
+       
        const match = wordOrSpace.match(/^([^a-zA-ZğüşıöçĞÜŞİÖÇ]*)([a-zA-ZğüşıöçĞÜŞİÖÇ]+)([^a-zA-ZğüşıöçĞÜŞİÖÇ]*)$/);
        if (!match) return <span key={idx}>{wordOrSpace}</span>; 
-       const before = match[1]; const cleanWord = match[2]; const after = match[3];
+       
+       const before = match[1]; 
+       const cleanWord = match[2]; 
+       const after = match[3];
        const lowerCleanWord = cleanWord.toLowerCase('tr-TR');
+       
        const isTarget = targetWordsLower.includes(lowerCleanWord);
        const isFound = foundWords.includes(lowerCleanWord);
+       
        const handleWordClick = () => {
          if (!isReadingFinished || !isTarget || isFound) return; 
-         const nfw = [...foundWords, lowerCleanWord]; setFoundWords(nfw); 
-         if (storyData.treasureHunt && nfw.length === storyData.treasureHunt.targetWords.length) {
-            setShowBadgeAnimation(true); setTimeout(() => { setShowBadgeAnimation(false); setBadgeInCorner(true); setTimeout(() => setBadgeInCorner(false), 5000); }, 3000);
+         
+         const newFoundWords = [...foundWords, lowerCleanWord]; 
+         setFoundWords(newFoundWords); 
+         
+         if (storyData.treasureHunt && newFoundWords.length === storyData.treasureHunt.targetWords.length) {
+            setShowBadgeAnimation(true); 
+            setTimeout(() => { 
+              setShowBadgeAnimation(false); 
+              setBadgeInCorner(true); 
+              setTimeout(() => setBadgeInCorner(false), 5000); 
+            }, 3000);
          }
        };
-       let cls = (isReadingFinished && storyData.treasureHunt) ? (isFound ? "bg-amber-300 text-amber-900 rounded-lg px-1 scale-110 shadow-sm transition-all inline-block" : "cursor-pointer hover:bg-sky-100 rounded-lg px-1 transition-all inline-block") : "";
+       
+       let textClass = (isReadingFinished && storyData.treasureHunt) 
+         ? (isFound ? "bg-amber-300 text-amber-900 rounded-lg px-1 scale-110 shadow-sm transition-all inline-block" : "cursor-pointer hover:bg-sky-100 rounded-lg px-1 transition-all inline-block") 
+         : "";
+         
        let content = <span>{cleanWord}</span>;
+       
        if (showHeceler) {
-         const sesliler = 'aeıioöuüAEIİOÖUÜ'; let heceler = []; let kelimeKopya = cleanWord;
+         const sesliler = 'aeıioöuüAEIİOÖUÜ'; 
+         let heceler = []; 
+         let kelimeKopya = cleanWord;
+         
          while (kelimeKopya.length > 0) {
-           let sesliIndex = -1; for (let i = kelimeKopya.length - 1; i >= 0; i--) { if (sesliler.includes(kelimeKopya[i])) { sesliIndex = i; break; } }
-           if (sesliIndex === -1) { if (heceler.length > 0) heceler[0] = kelimeKopya + heceler[0]; else heceler.unshift(kelimeKopya); break; }
-           let hb = sesliIndex; if (sesliIndex > 0 && !sesliler.includes(kelimeKopya[sesliIndex - 1])) { hb = sesliIndex - 1; }
-           heceler.unshift(kelimeKopya.substring(hb)); kelimeKopya = kelimeKopya.substring(0, hb);
+           let sesliIndex = -1; 
+           for (let i = kelimeKopya.length - 1; i >= 0; i--) { 
+             if (sesliler.includes(kelimeKopya[i])) { sesliIndex = i; break; } 
+           }
+           if (sesliIndex === -1) { 
+             if (heceler.length > 0) heceler[0] = kelimeKopya + heceler[0]; 
+             else heceler.unshift(kelimeKopya); 
+             break; 
+           }
+           let heceBaslangici = sesliIndex; 
+           if (sesliIndex > 0 && !sesliler.includes(kelimeKopya[sesliIndex - 1])) { heceBaslangici = sesliIndex - 1; }
+           heceler.unshift(kelimeKopya.substring(heceBaslangici)); 
+           kelimeKopya = kelimeKopya.substring(0, heceBaslangici);
          }
          content = <>{heceler.map((h, hi) => (<span key={hi} className={hi % 2 === 0 ? "text-rose-500" : "text-slate-800"}>{h}</span>))}</>;
        }
-       return <span key={idx} onClick={handleWordClick} className={cls}>{before}{content}{after}</span>;
+       return <span key={idx} onClick={handleWordClick} className={textClass}>{before}{content}{after}</span>;
     });
   };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-fuchsia-200 font-sans flex flex-col relative pt-8 pb-12 overflow-x-hidden">
-      <style>{`@keyframes pendulum { 0% { transform: translateX(-35vw); } 50% { transform: translateX(35vw); } 100% { transform: translateX(-35vw); } } .animate-pendulum { animation: pendulum 3s infinite ease-in-out; } @media print { body * { visibility: hidden; } #print-section, #print-section * { visibility: visible; } #print-section { position: absolute; left: 0; top: 0; width: 100%; } }`}</style>
+      
+      {/* --- ANİMASYONLAR VE YAZDIRMA (PDF) STİLLERİ --- */}
+      <style>{`
+        @keyframes pendulum { 
+          0% { transform: translateX(-35vw); } 
+          50% { transform: translateX(35vw); } 
+          100% { transform: translateX(-35vw); } 
+        } 
+        .animate-pendulum { animation: pendulum 3s infinite ease-in-out; } 
+        @media print { 
+          body * { visibility: hidden; } 
+          #print-section, #print-section * { visibility: visible; } 
+          #print-section { position: absolute; left: 0; top: 0; width: 100%; } 
+        }
+      `}</style>
 
+      {/* ÜST PANEL: ÖĞRENCİ PROFİLİ TETİKLEYİCİ */}
       {!['teacher-login', 'teacher'].includes(view) && (
         <div className="absolute top-4 left-4 flex items-center gap-4 z-50">
            <button onClick={() => setShowProfileModal(true)} className="flex items-center gap-3 bg-white/95 p-2 pr-6 rounded-full shadow-xl border-4 border-white hover:scale-105 transition-transform cursor-pointer">
-              <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-sky-100 text-2xl shadow-inner ring-2 ring-sky-200">{studentAvatar}</div>
+              <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-sky-100 text-2xl shadow-inner ring-2 ring-sky-200">
+                {studentAvatar}
+              </div>
               <span className="font-black text-sky-800 text-xl">{studentName ? studentName.split(' ')[0] : 'Giriş'}</span>
            </button>
            {badgeInCorner && <div className="animate-pulse drop-shadow-2xl transition-all"><span className="text-5xl">🕵️‍♂️</span></div>}
         </div>
       )}
 
+      {/* OYUNLAŞTIRILMIŞ ÖĞRENCİ PROFİL MODALI */}
       {showProfileModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-sky-900/50 backdrop-blur-sm p-4">
            <div className="bg-white rounded-[3rem] p-8 w-full max-w-md shadow-2xl relative border-8 border-sky-200 animate-in zoom-in duration-300">
-              <button onClick={() => setShowProfileModal(false)} className="absolute top-4 right-4 text-sky-600"><X /></button>
+              <button onClick={() => setShowProfileModal(false)} className="absolute top-4 right-4 bg-sky-100 p-2 rounded-full text-sky-600 hover:bg-sky-200"><X /></button>
+              
               <div className="flex flex-col items-center">
-                 <div className="w-24 h-24 rounded-full bg-sky-100 text-5xl flex items-center justify-center mb-4 shadow-inner ring-4 ring-white">{studentAvatar}</div>
-                 <h2 className="text-3xl font-black text-sky-800">{studentName || 'Misafir'}</h2>
+                 <div className="w-24 h-24 rounded-full bg-sky-100 text-5xl flex items-center justify-center mb-4 shadow-inner ring-4 ring-white">
+                    {studentAvatar}
+                 </div>
+                 <h2 className="text-3xl font-black text-sky-800">{studentName || 'Misafir Öğrenci'}</h2>
+                 
+                 {/* MEVCUT RÜTBE KEMERİ */}
                  <div className="mt-4 bg-indigo-600 text-white px-6 py-2 rounded-full font-black text-lg shadow-lg flex items-center gap-2">
                     {RANKS[academyLevel-1].icon} {RANKS[academyLevel-1].name}
                  </div>
               </div>
+
+              {/* RÜTBE VİTRİNİ (GÖLGELİ/KİLİTLİ) */}
               <div className="mt-8 grid grid-cols-4 gap-2">
                  {RANKS.map(r => (
                     <div key={r.lvl} className={`flex flex-col items-center p-2 rounded-xl border-2 transition-all ${academyLevel >= r.lvl ? 'bg-emerald-50 border-emerald-300 shadow-md' : 'bg-slate-50 border-slate-200 grayscale opacity-40'}`}>
@@ -348,14 +612,18 @@ export default function App() {
                     </div>
                  ))}
               </div>
+
               <div className="mt-8 space-y-4">
-                 <div className="bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100 flex items-center justify-between">
-                    <div className="font-black text-emerald-800 flex items-center gap-2"><BookOpen size={18}/> Kumbaram</div>
-                    <div className="text-2xl font-black text-emerald-600">{stats.filter(s => s.name === studentName).reduce((a, c) => a + (Number(c.words) || 0), 0)}</div>
+                 <div className="bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100 flex items-center justify-between shadow-sm">
+                    <div className="font-black text-emerald-800 flex items-center gap-2"><BookOpen size={18}/> Kelime Kumbarası</div>
+                    <div className="text-2xl font-black text-emerald-600">
+                       {stats.filter(s => s.name === studentName).reduce((acc, curr) => acc + (Number(curr.words) || 0), 0)}
+                    </div>
                  </div>
+                 
                  {teacherStars > 0 && (
                    <div className="bg-amber-50 p-4 rounded-2xl border-4 border-amber-200 flex items-center justify-between animate-pulse">
-                      <div className="font-black text-amber-800 flex items-center gap-2"><Star size={18}/> Arif Öğretmen Yıldızları</div>
+                      <div className="font-black text-amber-800 flex items-center gap-2"><Star size={18}/> Öğretmen Yıldızları</div>
                       <div className="text-2xl font-black text-amber-600">x{teacherStars}</div>
                    </div>
                  )}
@@ -364,6 +632,7 @@ export default function App() {
         </div>
       )}
 
+      {/* ÖĞRETMEN YILDIZ HEDİYE ANİMASYONU */}
       {showTeacherStarGift && (
          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/60 backdrop-blur-md">
             <div className="bg-white p-12 rounded-[4rem] shadow-2xl border-8 border-amber-300 text-center animate-bounce cursor-pointer" onClick={() => setShowTeacherStarGift(false)}>
@@ -375,6 +644,7 @@ export default function App() {
          </div>
       )}
 
+      {/* DEDEKTİF ROZETİ KAZANMA ANİMASYONU */}
       {showBadgeAnimation && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none bg-white/40 backdrop-blur-sm">
             <div className="bg-white p-12 rounded-[3rem] shadow-2xl flex flex-col items-center animate-bounce border-8 border-amber-300 text-center max-w-xl">
@@ -386,13 +656,17 @@ export default function App() {
       )}
 
       <div className="flex-1 w-full px-4">
+        
+        {/* ANA GİRİŞ VE KURULUM EKRANI */}
         {view === 'student-setup' && !isGeneratingStory && (
           <div className="max-w-xl mx-auto bg-white/95 p-8 rounded-[3rem] shadow-2xl border-8 border-sky-300 mt-20 relative text-center">
              <button onClick={()=>setView('teacher-login')} className="absolute top-4 right-4 w-12 h-12 bg-emerald-400 rounded-full flex items-center justify-center text-white shadow-lg z-10"><BarChart3 /></button>
+             
              <div className="flex flex-col items-center justify-center mb-10">
                 <Rocket className="text-sky-500 w-16 h-16 animate-bounce mb-4" />
                 <h1 className="text-5xl font-black text-sky-800 tracking-tight">Okuma Maceram</h1>
              </div>
+             
              <div className="space-y-6">
                 <div className="bg-sky-50 p-6 rounded-2xl border-4 border-sky-100 text-left">
                   <label className="block text-lg font-black text-sky-800 mb-2">Adın Soyadın:</label>
@@ -400,16 +674,28 @@ export default function App() {
                     <option value="">İsmini Seç...</option>
                     {students.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                   </select>
+                  
                   <label className="block text-lg font-black text-sky-800 mb-2">Şifren:</label>
                   <input type="password" value={studentPassword} onChange={e=>setStudentPassword(e.target.value)} className="w-full p-4 border-4 border-sky-200 rounded-xl text-center text-2xl tracking-[1em] font-bold" placeholder="••••" maxLength={4} />
                   {loginError && <p className="text-rose-500 font-bold mt-3 text-center">{loginError}</p>}
                 </div>
 
+                {/* SÜRELİ ÖDEV BİLDİRİMİ */}
                 {activeHomework && (
                   <div className="p-6 bg-amber-300 rounded-[2rem] border-b-[8px] border-amber-500 shadow-xl relative overflow-hidden">
                     {activeHomework.deadline && <div className="absolute top-0 right-0 bg-rose-500 text-white px-3 py-1 font-bold text-xs">Süreli ⏱️</div>}
                     <h3 className="text-3xl font-black text-amber-900 mb-4 mt-2">📚 Yeni Ödevin Var!</h3>
-                    <button onClick={() => { if(studentName && studentPassword) handleStartHomework(); else setLoginError('Giriş yapmalısın.'); }} className="w-full bg-white text-amber-600 text-xl font-black py-3 rounded-xl shadow-lg hover:scale-105 transition-transform">GÖREVİ BAŞLAT 🚀</button>
+                    <button onClick={() => { 
+                        if(studentName && studentPassword) {
+                          startReadingSession('Sınıf Ödevi', 'Ödev', true);
+                        } else {
+                          setLoginError('Giriş yapmalısın.'); 
+                        }
+                      }} 
+                      className="w-full bg-white text-amber-600 text-xl font-black py-3 rounded-xl shadow-lg hover:scale-105 transition-transform"
+                    >
+                      GÖREVİ BAŞLAT 🚀
+                    </button>
                   </div>
                 )}
 
@@ -421,6 +707,7 @@ export default function App() {
                       ))}
                    </div>
                    <input type="text" value={customTopic} onChange={e=>setCustomTopic(e.target.value)} className="w-full p-4 border-4 border-sky-200 rounded-xl mb-4 font-bold" placeholder="Veya başka bir konu yaz..." />
+                   
                    <label className="block text-lg font-black text-sky-800 mb-2">Okuma Seviyesi:</label>
                    <div className="flex gap-2">
                       {[{id:'1', l:'Kolay'}, {id:'2', l:'Orta'}, {id:'3', l:'Zor'}].map(lvl => (
@@ -430,34 +717,82 @@ export default function App() {
                 </div>
 
                 <div className="flex gap-4">
-                  <button onClick={async () => { if (!studentName || !studentPassword) { setLoginError('Giriş yapmalısın.'); return; } await startReadingSession('Serbest', level, false); }} className="flex-1 bg-sky-500 text-white py-6 rounded-2xl text-xl font-black border-b-8 border-sky-700 shadow-xl">OKUMAYA BAŞLA ✨</button>
-                  <button onClick={() => { if(!studentName) { setLoginError('Adını seçmelisin.'); return; } setView('academy-menu'); }} className="bg-indigo-500 text-white px-6 py-4 rounded-2xl font-black border-b-8 border-indigo-700 shadow-xl flex items-center gap-2"><Eye /> AKADEMİ</button>
+                  <button onClick={async () => { 
+                      if (!studentName || !studentPassword) { setLoginError('Giriş yapmalısın.'); return; } 
+                      await startReadingSession('Serbest Okuma', level, false); 
+                    }} className="flex-1 bg-sky-500 text-white py-6 rounded-2xl text-xl font-black border-b-8 border-sky-700 shadow-xl">
+                      OKUMAYA BAŞLA ✨
+                  </button>
+                  <button onClick={() => { 
+                      if(!studentName) { setLoginError('Adını seçmelisin.'); return; } 
+                      setView('academy-menu'); 
+                    }} className="bg-indigo-500 text-white px-6 py-4 rounded-2xl font-black border-b-8 border-indigo-700 shadow-xl flex items-center gap-2">
+                      <Eye /> AKADEMİ
+                  </button>
                 </div>
+                
              </div>
           </div>
         )}
 
+        {/* --- AKADEMİ MENÜSÜ --- */}
         {view === 'academy-menu' && (
           <div className="max-w-4xl mx-auto bg-white/95 p-10 rounded-[3rem] shadow-2xl border-8 border-indigo-300 mt-20 text-center relative">
              <button onClick={() => setView('student-setup')} className="absolute top-6 right-6 bg-slate-100 p-2 rounded-full text-slate-600 hover:bg-slate-200"><X /></button>
              <h2 className="text-4xl font-black text-indigo-600 mb-10 flex items-center justify-center gap-3"><Eye /> Hızlı Okuma Akademisi</h2>
+             
              <div className="grid md:grid-cols-2 gap-6 text-left">
-                <button onClick={() => { setView('academy-warmup-ready'); speakInstruction("Göz kaslarımızı esnetelim. Kafanı çevirmeden kırmızı topu takip et."); }} className="p-8 bg-sky-50 border-4 border-sky-200 rounded-[2rem] relative group transition-all hover:bg-sky-100">
+                {/* 1. SEVİYE: SARKAÇ */}
+                <button onClick={() => { 
+                  setView('academy-warmup-ready'); 
+                  speakInstruction("Göz kaslarımızı esnetelim. Kafanı çevirmeden kırmızı topu takip et."); 
+                }} className="p-8 bg-sky-50 border-4 border-sky-200 rounded-[2rem] relative group transition-all hover:bg-sky-100">
                    <h3 className="text-2xl font-black text-sky-800 mb-1">1. Harf İzicisi 👣</h3>
                    <p className="font-bold text-sky-600 italic text-sm">Göz kaslarını esnetir. (Sarkaç)</p>
                    <Unlock className="absolute right-6 top-1/2 -translate-y-1/2 text-sky-200 group-hover:scale-110" />
                 </button>
-                <button onClick={() => academyLevel >= 2 ? (setSchulteGrid([...Array(9)].map((_,i)=>i+1).sort(()=>Math.random()-0.5)), setSchulteExpected(1), setView('academy-schulte-ready'), speakInstruction("Gözünü merkezden ayırma ve sayıları sırayla bul!")) : null} className={`p-8 border-4 rounded-[2rem] relative ${academyLevel >= 2 ? 'bg-emerald-50 border-emerald-200 cursor-pointer hover:bg-emerald-100' : 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed'}`}>
+
+                {/* 2. SEVİYE: SCHULTE */}
+                <button onClick={() => academyLevel >= 2 ? (
+                    setSchulteGrid([...Array(9)].map((_,i)=>i+1).sort(()=>Math.random()-0.5)), 
+                    setSchulteExpected(1), 
+                    setView('academy-schulte-ready'), 
+                    speakInstruction("Gözünü merkezden ayırma ve sayıları sırayla bul!")
+                  ) : null} 
+                  className={`p-8 border-4 rounded-[2rem] relative ${academyLevel >= 2 ? 'bg-emerald-50 border-emerald-200 cursor-pointer hover:bg-emerald-100' : 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed'}`}
+                >
                    <h3 className={`text-2xl font-black mb-1 ${academyLevel >= 2 ? 'text-emerald-800' : 'text-slate-500'}`}>2. Hece Kâşifi 🛶</h3>
                    <p className={`font-bold italic text-sm ${academyLevel >= 2 ? 'text-emerald-600' : 'text-slate-400'}`}>Geniş açıyla görmeyi öğretir.</p>
                    {academyLevel >= 2 ? <Unlock className="absolute right-6 top-1/2 -translate-y-1/2 text-emerald-200" /> : <Lock className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300" />}
                 </button>
-                <button onClick={() => academyLevel >= 3 ? (setFlashStage(0), setView('academy-flash-ready'), speakInstruction("Şimdi flaş kelimeleri fotoğraf gibi çekme vakti!")) : null} className={`p-8 border-4 rounded-[2rem] relative ${academyLevel >= 3 ? 'bg-amber-50 border-amber-200 cursor-pointer hover:bg-amber-100' : 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed'}`}>
+
+                {/* 3. SEVİYE: FLAŞ KELİMELER */}
+                <button onClick={() => academyLevel >= 3 ? (
+                    setFlashStage(0), 
+                    setView('academy-flash-ready'), 
+                    speakInstruction("Şimdi flaş kelimeleri fotoğraf gibi çekme vakti!")
+                  ) : null} 
+                  className={`p-8 border-4 rounded-[2rem] relative ${academyLevel >= 3 ? 'bg-amber-50 border-amber-200 cursor-pointer hover:bg-amber-100' : 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed'}`}
+                >
                    <h3 className={`text-2xl font-black mb-1 ${academyLevel >= 3 ? 'text-amber-800' : 'text-slate-500'}`}>3. Kelime Avcısı 🦅</h3>
                    <p className={`font-bold italic text-sm ${academyLevel >= 3 ? 'text-amber-600' : 'text-slate-400'}`}>Kelimeleri bütün olarak yakalar.</p>
                    {academyLevel >= 3 ? <Unlock className="absolute right-6 top-1/2 -translate-y-1/2 text-amber-200" /> : <Lock className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300" />}
                 </button>
-                <button onClick={() => academyLevel >= 4 ? (const ww = metronomeText.split(/\s+/), cc = []; for(let i=0; i<ww.length; i+=2) cc.push(ww.slice(i, i+2).join(' ')); setMetronomeChunks(cc); setMetronomeIndex(-1); setView('academy-metronome-ready'); speakInstruction("Ritmik ve akıcı okuma macerasına başla!")) : null} className={`p-8 border-4 rounded-[2rem] relative ${academyLevel >= 4 ? 'bg-fuchsia-50 border-fuchsia-200 cursor-pointer hover:bg-fuchsia-100' : 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed'}`}>
+
+                {/* 4. SEVİYE: METRONOM */}
+                <button onClick={() => academyLevel >= 4 ? (
+                    (() => {
+                      const ww = metronomeText.split(/\s+/);
+                      const cc = []; 
+                      for(let i=0; i<ww.length; i+=2) cc.push(ww.slice(i, i+2).join(' ')); 
+                      setMetronomeChunks(cc); 
+                      setMetronomeIndex(-1); 
+                      setView('academy-metronome-ready'); 
+                      speakInstruction("Ritmik ve akıcı okuma macerasına başla!");
+                    })()
+                  ) : null} 
+                  className={`p-8 border-4 rounded-[2rem] relative ${academyLevel >= 4 ? 'bg-fuchsia-50 border-fuchsia-200 cursor-pointer hover:bg-fuchsia-100' : 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed'}`}
+                >
                    <h3 className={`text-2xl font-black mb-1 ${academyLevel >= 4 ? 'text-fuchsia-800' : 'text-slate-500'}`}>4. Hikâye Ustası 📜</h3>
                    <p className={`font-bold italic text-sm ${academyLevel >= 4 ? 'text-fuchsia-600' : 'text-slate-400'}`}>Ritmik ve akıcı okuma yapar.</p>
                    {academyLevel >= 4 ? <Unlock className="absolute right-6 top-1/2 -translate-y-1/2 text-fuchsia-200" /> : <Lock className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300" />}
@@ -466,6 +801,7 @@ export default function App() {
           </div>
         )}
 
+        {/* --- AKADEMİ: ISINMA (SARKAÇ) --- */}
         {view === 'academy-warmup-ready' && (
            <div className="max-w-2xl mx-auto mt-20 text-center bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-sky-200 relative">
               <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-sky-600 p-4 rounded-full shadow-xl border-4 border-sky-100"><ArrowLeft /></button>
@@ -475,6 +811,7 @@ export default function App() {
               <button onClick={() => { setWarmupTime(30); setView('academy-warmup-active'); }} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-3xl font-black shadow-xl border-b-8 border-sky-700 active:translate-y-2 active:border-b-0 transition-all">BAŞLA! 🚀</button>
            </div>
         )}
+
         {view === 'academy-warmup-active' && (
           <div className="max-w-4xl mx-auto mt-20 text-center flex flex-col items-center justify-center min-h-[50vh] relative">
              <button onClick={() => setView('academy-menu')} className="absolute -top-12 left-0 bg-white text-sky-600 px-6 py-3 rounded-2xl font-black shadow-lg border-4 border-sky-100 hover:bg-sky-50"><ArrowLeft /> Geri Dön</button>
@@ -486,6 +823,7 @@ export default function App() {
           </div>
         )}
 
+        {/* --- AKADEMİ: SCHULTE TABLOSU --- */}
         {view === 'academy-schulte-ready' && (
            <div className="max-w-2xl mx-auto mt-20 text-center bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-emerald-200 relative">
               <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-emerald-600 p-4 rounded-full shadow-xl border-4 border-emerald-100"><ArrowLeft /></button>
@@ -495,13 +833,26 @@ export default function App() {
               <button onClick={() => setView('academy-schulte-active')} className="w-full bg-emerald-500 text-white py-6 rounded-2xl text-3xl font-black shadow-xl border-b-8 border-emerald-700 active:translate-y-2 active:border-b-0 transition-all">BAŞLA! 🚀</button>
            </div>
         )}
+
         {view === 'academy-schulte-active' && (
           <div className="max-w-2xl mx-auto mt-20 text-center flex flex-col items-center justify-center relative bg-white p-10 rounded-[3rem] shadow-2xl border-8 border-emerald-200">
              <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-emerald-600 p-4 rounded-full shadow-xl border-4 border-emerald-100 hover:bg-emerald-50"><ArrowLeft /></button>
              <p className="text-xl font-bold text-emerald-800 mb-8">Sıradaki Sayı: <span className="text-4xl text-rose-500">{schulteExpected}</span></p>
              <div className="grid grid-cols-3 gap-4 w-full max-w-sm mx-auto">
                 {schulteGrid.map((num, i) => (
-                   <button key={i} onClick={() => handleSchulteClick(num)} className={`h-24 text-4xl font-black rounded-2xl shadow-sm transition-all border-4 ${num < schulteExpected ? 'bg-emerald-100 text-emerald-400 border-emerald-200' : 'bg-slate-50 text-slate-700 border-slate-200 active:scale-95'}`}>
+                   <button key={i} onClick={() => {
+                        if(num === schulteExpected) {
+                          if(num === 9) {
+                            updateAcademyLevel(3);
+                            showTeacherMessageLocal("Harika! 3. Seviye Açıldı. 🔓");
+                            setView('academy-menu');
+                          } else {
+                            setSchulteExpected(p => p + 1);
+                          }
+                        }
+                      }} 
+                      className={`h-24 text-4xl font-black rounded-2xl shadow-sm transition-all border-4 ${num < schulteExpected ? 'bg-emerald-100 text-emerald-400 border-emerald-200' : 'bg-slate-50 text-slate-700 border-slate-200 active:scale-95'}`}
+                    >
                       {num}
                    </button>
                 ))}
@@ -509,6 +860,7 @@ export default function App() {
           </div>
         )}
 
+        {/* --- AKADEMİ: FLAŞ KELİMELER --- */}
         {view === 'academy-flash-ready' && (
            <div className="max-w-2xl mx-auto mt-20 text-center bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-amber-200 relative">
               <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-amber-600 p-4 rounded-full shadow-xl border-4 border-amber-100"><ArrowLeft /></button>
@@ -525,9 +877,11 @@ export default function App() {
               <button onClick={() => { setView('academy-flash-active'); triggerFlashWord(); }} className="w-full bg-amber-500 text-white py-6 rounded-2xl text-3xl font-black shadow-xl border-b-8 border-amber-700 active:translate-y-2 active:border-b-0 transition-all">BAŞLA! 🚀</button>
            </div>
         )}
+
         {view === 'academy-flash-active' && (
           <div className="max-w-3xl mx-auto mt-20 text-center flex flex-col items-center justify-center relative bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-amber-200 min-h-[400px]">
              <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-amber-600 p-4 rounded-full shadow-xl border-4 border-amber-100 hover:bg-amber-50"><ArrowLeft /></button>
+             
              {isFlashShowing ? (
                 <div className="text-7xl font-black text-slate-800 tracking-tight my-10 animate-in fade-in duration-150">{currentFlashWord.w}</div>
              ) : (
@@ -537,9 +891,19 @@ export default function App() {
                       {currentFlashWord.o.map((opt, i) => (
                          <button key={i} onClick={() => {
                             if(opt === currentFlashWord.w) {
-                              if(flashStage === 2) { updateAcademyLevel(4); showTeacherMessage("Harika! 4. Seviye Açıldı. 🔓"); setView('academy-menu'); }
-                              else { setFlashStage(p=>p+1); triggerFlashWord(); }
-                            } else { setFlashStage(0); triggerFlashWord(); }
+                              if(flashStage === 2) { 
+                                updateAcademyLevel(4); 
+                                showTeacherMessageLocal("Harika! 4. Seviye Açıldı. 🔓"); 
+                                setView('academy-menu'); 
+                              }
+                              else { 
+                                setFlashStage(p=>p+1); 
+                                triggerFlashWord(); 
+                              }
+                            } else { 
+                              setFlashStage(0); 
+                              triggerFlashWord(); 
+                            }
                          }} className="p-6 bg-amber-50 border-4 border-amber-200 rounded-2xl text-2xl font-black text-amber-700 hover:bg-amber-100 active:scale-95 transition-transform">{opt}</button>
                       ))}
                    </div>
@@ -548,6 +912,7 @@ export default function App() {
           </div>
         )}
 
+        {/* --- AKADEMİ: METRONOM --- */}
         {view === 'academy-metronome-ready' && (
            <div className="max-w-2xl mx-auto mt-20 text-center bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-fuchsia-200 relative">
               <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-fuchsia-600 p-4 rounded-full shadow-xl border-4 border-fuchsia-100"><ArrowLeft /></button>
@@ -556,9 +921,11 @@ export default function App() {
               <button onClick={() => { setView('academy-metronome-active'); setMetronomeIndex(0); }} className="w-full bg-fuchsia-500 text-white py-6 rounded-2xl text-3xl font-black shadow-xl border-b-8 border-fuchsia-700 active:translate-y-2 active:border-b-0 transition-all">BAŞLA! 🚀</button>
            </div>
         )}
+
         {view === 'academy-metronome-active' && (
           <div className="max-w-4xl mx-auto mt-20 text-center flex flex-col items-center justify-center relative bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-fuchsia-200 min-h-[500px]">
              <button onClick={() => { setView('academy-menu'); setMetronomeIndex(-1); }} className="absolute -top-6 -left-6 bg-white text-fuchsia-600 p-4 rounded-full shadow-xl border-4 border-fuchsia-100 hover:bg-fuchsia-50"><ArrowLeft /></button>
+             
              {metronomeIndex < metronomeChunks.length ? (
                <>
                  <div className="w-full max-w-sm mb-12 bg-fuchsia-50 p-4 rounded-2xl border-4 border-fuchsia-100">
@@ -577,6 +944,8 @@ export default function App() {
              )}
           </div>
         )}
+
+        {/* --- YZ HİKAYE ÜRETİM YÜKLENİYOR --- */}
         {isGeneratingStory && (
           <div className="max-w-md mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl mt-20 text-center">
              <Loader2 className="w-20 h-20 text-sky-500 animate-spin mx-auto mb-6" />
@@ -584,6 +953,7 @@ export default function App() {
           </div>
         )}
 
+        {/* --- OKUMA ÖNCESİ EKRAN --- */}
         {view === 'reading-ready' && (
           <div className="max-w-2xl mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl mt-20 text-center">
              <h2 className="text-4xl font-black text-amber-600 mb-8">Hazır mısın?</h2>
@@ -594,6 +964,7 @@ export default function App() {
           </div>
         )}
 
+        {/* --- AKTİF OKUMA EKRANI VE DEDEKTİF MODU --- */}
         {view === 'reading-active' && (
           <div className="max-w-4xl mx-auto mt-12 space-y-8 relative">
              {isReadingFinished && storyData?.treasureHunt && (
@@ -648,6 +1019,7 @@ export default function App() {
           </div>
         )}
 
+        {/* YZ DEĞERLENDİRME YÜKLENİYOR */}
         {view === 'evaluating' && (
           <div className="max-w-md mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl mt-20 text-center">
              <Loader2 className="w-20 h-20 text-emerald-500 animate-spin mx-auto mb-6" />
@@ -655,6 +1027,7 @@ export default function App() {
           </div>
         )}
 
+        {/* --- SONUÇ / KARNE EKRANI --- */}
         {view === 'result' && (
           <div className="max-w-2xl mx-auto bg-white/95 p-10 rounded-[3rem] shadow-2xl border-8 border-sky-300 mt-12 text-center space-y-8">
              <h2 className="text-4xl font-black text-sky-600">Tebrikler {readingResult.name.split(' ')[0]}!</h2>
@@ -672,6 +1045,7 @@ export default function App() {
           </div>
         )}
 
+        {/* --- ÖĞRETMEN GİRİŞİ --- */}
         {view === 'teacher-login' && (
            <div className="max-w-md mx-auto bg-white/95 p-10 rounded-[2rem] shadow-2xl mt-20">
               <h2 className="text-3xl font-black text-emerald-600 text-center mb-8">Öğretmen Girişi</h2>
@@ -684,7 +1058,7 @@ export default function App() {
            </div>
         )}
 
-        {/* --- ÖĞRETMEN YÖNETİM PANELİ --- */}
+        {/* --- DEVASA ÖĞRETMEN YÖNETİM PANELİ --- */}
         {view === 'teacher' && (
            <div className="max-w-6xl mx-auto bg-white/95 rounded-[3rem] shadow-2xl mt-12 min-h-[600px] p-10 relative">
               <div className="flex justify-between items-center mb-8 no-print">
@@ -692,14 +1066,20 @@ export default function App() {
                  <button onClick={() => setView('student-setup')} className="bg-emerald-100 text-emerald-700 px-6 py-3 rounded-full font-bold">Öğrenci Ekranına Dön</button>
               </div>
               <div className="flex flex-wrap border-b-4 border-emerald-100 mb-8 no-print">
-                 {[ {id:'radar', i:<Activity/>, l:'Sınıf Radarı'}, {id:'stats', i:<FileText/>, l:'Rapor & Arşiv'}, {id:'homework', i:<BookOpen/>, l:'Ödev Merkezi'}, {id:'students', i:<Users/>, l:'Öğrenciler'}, {id:'settings', i:<Settings/>, l:'Ayarlar'} ].map(tab => (
+                 {[ 
+                   {id:'radar', i:<Activity/>, l:'Sınıf Radarı'}, 
+                   {id:'stats', i:<FileText/>, l:'Rapor & Arşiv'}, 
+                   {id:'homework', i:<BookOpen/>, l:'Ödev Merkezi'}, 
+                   {id:'students', i:<Users/>, l:'Öğrenciler'}, 
+                   {id:'settings', i:<Settings/>, l:'Ayarlar'} 
+                 ].map(tab => (
                     <button key={tab.id} onClick={() => setTeacherTab(tab.id)} className={`flex-1 flex items-center justify-center gap-2 py-4 font-black capitalize transition-all ${teacherTab === tab.id ? 'text-emerald-700 border-b-8 border-emerald-500 bg-emerald-50 rounded-t-xl' : 'text-slate-400 hover:text-emerald-500'}`}>
                        {tab.i} {tab.l}
                     </button>
                  ))}
               </div>
 
-              {/* RADAR */}
+              {/* SEKME: RADAR */}
               {teacherTab === 'radar' && (
                 <div className="space-y-8">
                    <div className="grid md:grid-cols-2 gap-6">
@@ -729,7 +1109,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* PDF KARNE & ARŞİV */}
+              {/* SEKME: RAPOR & PDF (Veli Çıktısı) */}
               {teacherTab === 'stats' && (
                 <div id="print-section">
                   <div className="mb-6 flex items-center gap-4 bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100 no-print">
@@ -768,7 +1148,7 @@ export default function App() {
                                   {row.audioUrl ? <audio src={row.audioUrl} controls className="h-10 w-full max-w-[200px] mx-auto" /> : <span className="text-slate-400">Yok</span>}
                                 </td>
                                 <td className="p-4 text-center no-print">
-                                  <button onClick={() => handleDeleteStat(row.id)} className="bg-rose-100 text-rose-600 p-2 rounded-lg hover:bg-rose-500 hover:text-white"><Trash2 size={18} /></button>
+                                  <button onClick={() => handleDeleteStudent(row.id)} className="bg-rose-100 text-rose-600 p-2 rounded-lg hover:bg-rose-500 hover:text-white"><Trash2 size={18} /></button>
                                 </td>
                               </tr>
                             ))}
@@ -813,7 +1193,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* ÖDEV MERKEZİ */}
+              {/* SEKME: ÖDEV MERKEZİ (Sınırsız Soru ve Süreli Gönderim) */}
               {teacherTab === 'homework' && (
                 <div className="space-y-6">
                   {activeHomework && (
@@ -832,14 +1212,23 @@ export default function App() {
                          if (!hwTopic) { showTeacherMessageLocal("⚠️ Ödev konusu yazın."); return; }
                          setIsGeneratingHw(true);
                          try {
-                           const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${EXTERNAL_GEMINI_API_KEY}`, { method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: `Konu: "${hwTopic}". 1. sınıf ödevi, metin ve 2 soru. JSON: {text, questions:[{q, options, correct}]}` }] }], generationConfig: { responseMimeType: "application/json" } }) });
-                           const data = await res.json(); const d = JSON.parse(data.candidates[0].content.parts[0].text);
+                           const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${EXTERNAL_GEMINI_API_KEY}`, { 
+                               method: 'POST', 
+                               body: JSON.stringify({ 
+                                   contents: [{ parts: [{ text: `Konu: "${hwTopic}". 1. sınıf ödevi, metin ve 2 soru. JSON: {text, questions:[{q, options, correct}]}` }] }], 
+                                   generationConfig: { responseMimeType: "application/json" } 
+                               }) 
+                           });
+                           const data = await res.json(); 
+                           const d = JSON.parse(data.candidates[0].content.parts[0].text);
                            setHwText(d.text); setHwQuestions(d.questions);
-                         } catch (e) {} setIsGeneratingHw(false);
+                         } catch (e) {} 
+                         setIsGeneratingHw(false);
                      }} disabled={isGeneratingHw} className="bg-fuchsia-500 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2">
                        {isGeneratingHw ? <Loader2 className="animate-spin" /> : <Sparkles />} Üret
                      </button>
                   </div>
+                  
                   <div className="grid md:grid-cols-2 gap-6">
                      <div>
                        <label className="block text-lg font-black text-emerald-800 mb-2">Okuma Metni:</label>
@@ -850,6 +1239,7 @@ export default function App() {
                        <input type="datetime-local" value={hwDeadline} onChange={e => setHwDeadline(e.target.value)} className="w-full p-4 border-4 border-amber-200 rounded-2xl font-bold" />
                      </div>
                   </div>
+
                   <div className="space-y-4">
                      {hwQuestions.map((q, qIndex) => (
                         <div key={qIndex} className="bg-emerald-50 p-6 rounded-2xl border-4 border-emerald-100 space-y-3 relative">
@@ -874,7 +1264,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* SINIF YÖNETİMİ & KİLİTLER */}
+              {/* SEKME: SINIF YÖNETİMİ (Hediye Yıldız ve Kilitler) */}
               {teacherTab === 'students' && (
                 <div>
                   <div className="flex gap-4 mb-8">
@@ -882,7 +1272,6 @@ export default function App() {
                     <input type="text" placeholder="Şifre" value={newStudentPassword} onChange={e=>setNewStudentPassword(e.target.value)} className="w-32 p-4 border-4 border-emerald-200 rounded-xl font-bold text-center" />
                     <button onClick={handleAddStudent} className="bg-emerald-500 text-white font-bold px-8 rounded-xl shadow-md">Ekle</button>
                   </div>
-                  {students.length === 0 && <button onClick={handleLoadDefaultClass} className="bg-amber-100 text-amber-800 px-6 py-3 rounded-full font-bold mb-4">1/A Listesini Yükle</button>}
                   
                   <div className="space-y-4">
                     {students.map(s => (
@@ -892,11 +1281,14 @@ export default function App() {
                            {s.teacherStars > 0 && <span className="bg-amber-100 text-amber-600 text-sm px-2 py-1 rounded-full flex items-center gap-1">🌟 x{s.teacherStars}</span>}
                         </div>
                         <div className="flex items-center gap-2 flex-wrap justify-end">
+                          
+                          {/* HEDİYE YILDIZ BUTONU */}
                           <button onClick={async () => {
                               await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { teacherStars: (s.teacherStars || 0) + 1, hasNewGift: true });
                               showTeacherMessageLocal('🌟 Öğrenciye Hediye Yıldız gönderildi!');
                           }} className="bg-amber-400 text-white p-3 rounded-xl shadow-md font-bold hover:scale-105 transition-transform" title="Motivasyon Yıldızı Gönder"><Gift size={20}/></button>
 
+                          {/* AKADEMİ SEVİYESİ YÖNETİMİ */}
                           <div className="bg-white border-2 border-indigo-200 rounded-xl flex items-center p-1 font-bold text-indigo-800 text-sm">
                              <span className="px-2">Lvl:</span>
                              <select value={s.academyLevel || 1} onChange={(e) => updateAcademyLevel(Number(e.target.value), s.id)} className="bg-indigo-50 border border-indigo-100 rounded-lg p-1 outline-none">
@@ -904,6 +1296,7 @@ export default function App() {
                              </select>
                           </div>
 
+                          {/* ŞİFRE YÖNETİMİ */}
                           {editingPasswords[s.id] !== undefined ? (
                             <div className="flex items-center gap-2">
                               <input type="text" value={editingPasswords[s.id]} onChange={(e) => setEditingPasswords({...editingPasswords, [s.id]: e.target.value})} className="w-20 p-2 border-2 border-emerald-300 rounded-lg text-center font-bold outline-none" maxLength={4} />
@@ -924,16 +1317,23 @@ export default function App() {
                 </div>
               )}
 
+              {/* SEKME: AYARLAR */}
               {teacherTab === 'settings' && (
                 <div className="flex flex-col max-w-md mx-auto gap-4 mt-8">
                    <label className="font-black text-emerald-800">Yönetici Şifresini Değiştir</label>
                    <input type="text" placeholder="Yeni Şifre" value={newTeacherPasswordInput} onChange={e=>setNewTeacherPasswordInput(e.target.value)} className="p-4 border-4 border-emerald-200 rounded-xl font-bold" />
-                   <button onClick={handleUpdateTeacherPassword} className="bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-md">Şifreyi Güncelle</button>
+                   <button onClick={async () => {
+                       if (!newTeacherPasswordInput || newTeacherPasswordInput.length < 4) { showTeacherMessageLocal("❌ En az 4 hane olmalı."); return; }
+                       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin'), { password: newTeacherPasswordInput.trim() }, { merge: true });
+                       setNewTeacherPasswordInput(''); 
+                       showTeacherMessageLocal("✅ Şifre güncellendi!");
+                   }} className="bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-md">Şifreyi Güncelle</button>
                 </div>
               )}
               {teacherMsg && <p className="mt-6 text-center text-xl font-black text-emerald-600 animate-bounce">{teacherMsg}</p>}
            </div>
         )}
+
       </div>
     </div>
   );
