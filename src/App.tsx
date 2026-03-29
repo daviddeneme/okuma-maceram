@@ -1765,7 +1765,10 @@ export default function App() {
           </div>
         )}
 
-      </div>
-    </div>
+        </div> {/* flex-1 w-full px-4 kapanışı */}
+      </div> {/* min-h-screen kapanışı */}
+      )} {/* İkinci ekranları saran bloğun kapanışı */}
+
+    </div> {/* En dıştaki ana sayfa kutusunun kapanışı */}
   );
 }
