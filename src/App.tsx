@@ -1435,7 +1435,7 @@ export default function App() {
                   <button onClick={() => setView('student-setup')} className="bg-emerald-100 text-emerald-700 px-6 py-3 rounded-full font-black hover:bg-emerald-200 transition-colors border-2 border-emerald-200">Öğrenci Ekranına Dön</button>
                 </div>
                 <div className="flex flex-wrap border-b-4 border-emerald-100 mb-10 no-print">
-                  {[{ id: 'radar', i: <Activity />, l: 'Sınıf Radarı' }, />, l:'Ödev Merkezi'}, {id:'students', i:<Users/>, l:'Öğrenciler'}, {id:'settings', i:<Settings/>, l:'Ayarlar'} ].map(tab => (
+                  />, l:'Ödev Merkezi'}, {id:'students', i:<Users/>, l:'Öğrenciler'}, {id:'settings', i:<Settings/>, l:'Ayarlar'} ].map(tab => (
                 <button key={tab.id} onClick={() => setTeacherTab(tab.id)} className={`flex-1 flex items-center justify-center gap-2 py-4 font-black capitalize transition-all text-lg ${teacherTab === tab.id ? 'text-emerald-700 border-b-8 border-emerald-500 bg-emerald-50 rounded-t-2xl' : 'text-slate-400 hover:text-emerald-500'}`}>
                   {tab.i} <span className="hidden md:inline">{tab.l}</span>
                 </button>
