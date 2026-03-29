@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, BookOpen, Star, Clock, Trophy, ArrowLeft, BarChart3, Rocket, Heart, Zap, Volume2, Mic, Send, FileText, Check, Loader2, Sparkles, Settings, Camera, TrendingUp, Award, X, Flame, Users, Search, Eye, Lock, Unlock } from 'lucide-react';
+import { User, BookOpen, Star, Clock, Trophy, ArrowLeft, BarChart3, Rocket, Heart, Zap, Volume2, Mic, Send, FileText, Check, Loader2, Sparkles, Settings, Camera, TrendingUp, Award, X, Flame, Users, Search, Eye, Lock, Unlock, Trash2, Plus, Activity, Calendar, Printer } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -39,13 +39,14 @@ export default function App() {
   const [students, setStudents] = useState([]); 
   
   const [activeHomework, setActiveHomework] = useState(null);
-  const [teacherTab, setTeacherTab] = useState('stats');
+  const [teacherTab, setTeacherTab] = useState('radar');
   const [selectedStudentForProgress, setSelectedStudentForProgress] = useState(null);
 
-  const [hwForm, setHwForm] = useState({
-    text: '', q1: '', q1o1: '', q1o2: '', q1o3: '', q1c: 0, q2: '', q2o1: '', q2o2: '', q2o3: '', q2c: 1
-  });
-
+  // Sınırsız Sorulu Ödev Formu State'leri
+  const [hwText, setHwText] = useState('');
+  const [hwDeadline, setHwDeadline] = useState('');
+  const [hwQuestions, setHwQuestions] = useState([{ q: '', options: ['', '', ''], correct: 0 }]);
+  
   const [studentName, setStudentName] = useState('');
   const [studentPassword, setStudentPassword] = useState('');
   const [studentAvatar, setStudentAvatar] = useState('🐶'); 
@@ -78,6 +79,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   
   const [academyLevel, setAcademyLevel] = useState(1);
+  const [teacherStars, setTeacherStars] = useState(0);
 
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentPassword, setNewStudentPassword] = useState('1234');
@@ -100,7 +102,7 @@ export default function App() {
   const [showBadgeAnimation, setShowBadgeAnimation] = useState(false);
   const [badgeInCorner, setBadgeInCorner] = useState(false);
 
-  // --- AKADEMİ STATE'LERİ ---
+  // AKADEMİ STATE'LERİ
   const [warmupTime, setWarmupTime] = useState(30);
   const [schulteGrid, setSchulteGrid] = useState([]);
   const [schulteExpected, setSchulteExpected] = useState(1);
@@ -156,7 +158,16 @@ export default function App() {
 
     const hwRef = doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current');
     const unsubscribeHw = onSnapshot(hwRef, (docSnap) => {
-      if (docSnap.exists()) setActiveHomework(docSnap.data());
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.deadline && new Date() > new Date(data.deadline)) {
+           // Süresi dolmuş ödevi otomatik silme mekanizması
+           deleteDoc(hwRef);
+           setActiveHomework(null);
+        } else {
+           setActiveHomework(data);
+        }
+      }
       else setActiveHomework(null);
     });
 
@@ -176,7 +187,8 @@ export default function App() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setSavedProfile(data); setStudentName(data.studentName); setStudentPassword(data.studentPassword);
-        setStudentAvatar(data.avatar || '🐶'); setLevel(data.level); setAcademyLevel(data.academyLevel || 1); setRememberMe(true);
+        setStudentAvatar(data.avatar || '🐶'); setLevel(data.level); setAcademyLevel(data.academyLevel || 1); 
+        setRememberMe(true);
         const topicsArray = (data.interest || '').split(', ').filter(t => t.trim() !== '');
         const cleanPredefined = PREDEFINED_TOPICS.map(t => t.split(' ')[0]);
         setSelectedTopics(topicsArray.filter(t => cleanPredefined.includes(t)));
@@ -186,9 +198,26 @@ export default function App() {
     fetchProfile();
   }, [user]);
 
+  // Öğrencinin öğretmen tarafından verilen yıldızlarını çekme
+  useEffect(() => {
+    if (studentName) {
+      const matchedStudent = students.find(s => s.name === studentName);
+      if (matchedStudent) {
+         setTeacherStars(matchedStudent.teacherStars || 0);
+      }
+    }
+  }, [studentName, students]);
+
   const showTeacherMessage = (msg) => { setTeacherMsg(msg); setTimeout(() => setTeacherMsg(''), 4000); };
 
-  const updateAcademyLevel = async (newLevel) => {
+  const updateAcademyLevel = async (newLevel, forceStudentId = null) => {
+    if (forceStudentId) {
+       // Öğretmenin manuel olarak seviye değiştirmesi
+       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', forceStudentId), { academyLevel: newLevel });
+       showTeacherMessage('✅ Seviye güncellendi!');
+       return;
+    }
+
     if (newLevel > academyLevel) {
       setAcademyLevel(newLevel);
       if (savedProfile) {
@@ -196,17 +225,32 @@ export default function App() {
         setSavedProfile(newProfile);
         if (user) await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), newProfile, { merge: true });
         localStorage.setItem('okumaMaceramProfile', JSON.stringify(newProfile));
+        
+        // Genel listeye de güncelleme at
+        const matched = students.find(s => s.name === studentName);
+        if (matched) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', matched.id), { academyLevel: newLevel });
       }
     }
   };
 
-  // --- AKADEMİ SESLİ YÖNERGE MANTIKLARI ---
+  const handleGiveTeacherStar = async (studentId, currentStars) => {
+    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), { teacherStars: (currentStars || 0) + 1 });
+    showTeacherMessage('🌟 Özel Öğretmen Yıldızı gönderildi!');
+  };
+
+  // İnsansı Seslendirme Fonksiyonu
   const speakInstruction = (text) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const msg = new SpeechSynthesisUtterance(text);
       msg.lang = 'tr-TR';
       msg.rate = 0.9;
+      msg.pitch = 1.3; // Daha ince, şefkatli bir ton
+      
+      const voices = window.speechSynthesis.getVoices();
+      const turkishFemale = voices.find(voice => voice.lang.includes('tr') && voice.name.includes('Female'));
+      if (turkishFemale) msg.voice = turkishFemale;
+      
       window.speechSynthesis.speak(msg);
     }
   };
@@ -302,12 +346,11 @@ export default function App() {
     setMetronomeChunks(chunks); setMetronomeIndex(-1); setView('academy-metronome-ready');
     speakInstruction("İşte büyük görev! Arka planda çalan tik-tak sesinin ritmine uyarak ekrana gelen kelimeleri sesli bir şekilde oku. Ritimden hiç kopma. Hazırsan macerayı başlat!");
   };
-  // -------------------------
 
   const handleAddStudent = async () => {
     if (!newStudentName || !newStudentPassword) return;
     try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name: newStudentName.trim(), password: newStudentPassword.trim() });
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name: newStudentName.trim(), password: newStudentPassword.trim(), academyLevel: 1, teacherStars: 0 });
       setNewStudentName(''); setNewStudentPassword('1234'); showTeacherMessage(`✅ ${newStudentName} sınıfa eklendi!`);
     } catch (e) { showTeacherMessage(`❌ Öğrenci eklenemedi.`); }
   };
@@ -328,7 +371,7 @@ export default function App() {
 
   const handleDeleteStat = async (id) => {
     if (window.confirm('Bu okuma kaydını silmek istediğinize emin misiniz?')) {
-      try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stats', id)); showTeacherMessage('🗑️ Kayıt başarıyla silindi.'); } 
+      try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stats', id)); showTeacherMessage('🗑️ Kayıt silindi.'); } 
       catch (e) { showTeacherMessage('❌ Kayıt silinemedi.'); }
     }
   };
@@ -337,27 +380,36 @@ export default function App() {
     showTeacherMessage('⏳ Yükleniyor...');
     try {
       for (const name of DEFAULT_CLASS_LIST) {
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name, password: '1234' });
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name, password: '1234', academyLevel: 1, teacherStars: 0 });
       }
       showTeacherMessage('✅ 1/A Listesi yüklendi!');
     } catch (e) { showTeacherMessage('❌ Hata oluştu.'); }
   };
 
+  // Sınırsız Sorulu Ödev Gönderimi
   const handlePublishHomework = async () => {
-    if (!hwForm.text || !hwForm.q1 || !hwForm.q2) { showTeacherMessage('⚠️ Lütfen metni ve soruları eksiksiz doldurun.'); return; }
+    if (!hwText || hwQuestions.some(q => !q.q)) { showTeacherMessage('⚠️ Lütfen metni ve soruları eksiksiz doldurun.'); return; }
     showTeacherMessage('⏳ Ödev gönderiliyor...');
     try {
       const homeworkData = {
-        text: hwForm.text.replace(/\*/g, ''), 
-        questions: [
-          { id: 1, q: hwForm.q1, options: [hwForm.q1o1, hwForm.q1o2, hwForm.q1o3], correct: Number(hwForm.q1c) },
-          { id: 2, q: hwForm.q2, options: [hwForm.q2o1, hwForm.q2o2, hwForm.q2o3], correct: Number(hwForm.q2c) }
-        ],
+        text: hwText.replace(/\*/g, ''), 
+        questions: hwQuestions.map((q, idx) => ({ id: idx + 1, q: q.q, options: q.options, correct: Number(q.correct) })),
+        deadline: hwDeadline || null,
         timestamp: serverTimestamp()
       };
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current'), homeworkData);
       showTeacherMessage('✅ Ödev sınıfa başarıyla gönderildi!');
     } catch (e) { showTeacherMessage('❌ Ödev gönderilemedi.'); }
+  };
+
+  const handleRemoveHomework = async () => {
+    if (window.confirm('Aktif ödevi silmek istediğinize emin misiniz?')) {
+      try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current'));
+        setActiveHomework(null);
+        showTeacherMessage('🗑️ Ödev yayından kaldırıldı.');
+      } catch(e) { showTeacherMessage('❌ Ödev kaldırılamadı.'); }
+    }
   };
 
   const handleUpdateTeacherPassword = async () => {
@@ -368,7 +420,6 @@ export default function App() {
     } catch (e) { showTeacherMessage("❌ Hata."); }
   };
 
-  // --- ADAPTİF YAPAY ZEKA MOTORU ---
   const callGeminiAPI = async (topic, selectedLevel, avgWpm, avgScore) => {
     const apiKey = EXTERNAL_GEMINI_API_KEY; 
     if (!apiKey) throw new Error("API Anahtarı bulunamadı.");
@@ -380,7 +431,6 @@ export default function App() {
     
     let levelInstructions = selectedLevel === '1' ? "KOLAY SEVİYE: Kesinlikle 30 ile 50 kelime arasında yaz." : selectedLevel === '2' ? "ORTA SEVİYE: Kesinlikle 50 ile 90 kelime arasında yaz." : "ZOR SEVİYE: Kesinlikle 90 ile 140 kelime arasında yaz.";
     
-    // YENİ: Vygotsky Yakınsak Gelişim Alanı Adaptasyonu
     const adaptiveInstruction = avgWpm > 0 
       ? `ÖĞRENCİ PROFİLİ (UYARLANABİLİR EĞİTİM): Bu öğrencinin geçmiş okuma hızı ortalaması ${avgWpm} WPM ve okuduğunu anlama skoru ortalaması ${avgScore.toFixed(1)}/2. Lütfen metnin zorluğunu, kelime uzunluklarını ve anlamsal derinliğini bu öğrencinin seviyesini bir adım ileriye taşıyacak şekilde pedagojik olarak uyarla. Eğer hızı 40 WPM altındaysa karmaşık heceler (str, kr) kullanma. Anlama skoru 1.5'in altındaysa daha somut ve net olaylar kurgula.`
       : `ÖĞRENCİ PROFİLİ: Bu öğrenci sistemi ilk kez kullanıyor. Standart 1. sınıf seviyesinde doğal ve pedagojik bir metin üret.`;
@@ -420,22 +470,19 @@ export default function App() {
     if (!hwTopic) { showTeacherMessage("⚠️ Lütfen bir ödev konusu yazın."); return; }
     setIsGeneratingHw(true); showTeacherMessage("⏳ Yapay zeka ödevi hazırlıyor, lütfen bekleyin...");
     try {
-      const aiData = await callGeminiAPI(hwTopic, hwLevel, 0, 0); // Ödev için standart
-      setHwForm({
-        text: aiData.text,
-        q1: aiData.questions[0].q, q1o1: aiData.questions[0].options[0], q1o2: aiData.questions[0].options[1], q1o3: aiData.questions[0].options[2], q1c: aiData.questions[0].correct,
-        q2: aiData.questions[1].q, q2o1: aiData.questions[1].options[0], q2o2: aiData.questions[1].options[1], q2o3: aiData.questions[1].options[2], q2c: aiData.questions[1].correct
-      });
+      const aiData = await callGeminiAPI(hwTopic, hwLevel, 0, 0); 
+      setHwText(aiData.text);
+      setHwQuestions(aiData.questions);
       showTeacherMessage("✨ Ödev başarıyla oluşturuldu! Düzenleyip sınıfa gönderebilirsiniz.");
     } catch (err) {
       showTeacherMessage("❌ Sunucu şuan çok yoğun daha sonra tekrar deneyiniz.");
     } finally { setIsGeneratingHw(false); }
   };
 
-  const evaluateReadingWithAI = async (text, timeSeconds, wpm, compScore, audioDataUrl) => {
+  const evaluateReadingWithAI = async (text, timeSeconds, wpm, compScore, maxScore, audioDataUrl) => {
     const apiKey = EXTERNAL_GEMINI_API_KEY; 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-    const parts = [{ text: `Sen şefkatli bir öğretmensin. Metin: "${text}". Hız: ${wpm} wpm. Skor: 2/${compScore}. JSON formatında 1-5 arası puanla ve şefkatli geri bildirim yaz: { "akicilik": 4, "telaffuz": 5, "anlama": 5, "okuma_hizi": 4, "geribildirim": "Harika!" }` }];
+    const parts = [{ text: `Sen şefkatli bir öğretmensin. Metin: "${text}". Hız: ${wpm} wpm. Skor: ${compScore}/${maxScore}. JSON formatında 1-5 arası puanla ve şefkatli geri bildirim yaz: { "akicilik": 4, "telaffuz": 5, "anlama": 5, "okuma_hizi": 4, "geribildirim": "Harika!" }` }];
     if (audioDataUrl) { try { parts.push({ inlineData: { mimeType: "audio/webm", data: audioDataUrl.split(',')[1] } }); } catch (e) {} }
     const payload = { contents: [{ parts }], generationConfig: { responseMimeType: "application/json" } };
     try {
@@ -486,7 +533,6 @@ export default function App() {
     setInterest(currentInterest); setLevel(currentLevel); setAnswers({}); setHasRetried(false); setAudioUrl(null); setIsReadingFinished(false); setShowHeceler(false); setFoundWords([]);
     setShowBadgeAnimation(false); setBadgeInCorner(false);
     
-    // YENİ: Öğrencinin geçmiş verilerini hesapla ve adaptif sisteme gönder
     const studentPastStats = stats.filter(s => s.name === studentName);
     let avgWpm = 0; let avgScore = 0;
     if (studentPastStats.length > 0) {
@@ -542,7 +588,7 @@ export default function App() {
 
   const checkAnswers = () => {
     let correctCount = 0; storyData.questions.forEach(q => { if (answers[q.id] === q.correct) correctCount++; });
-    if (correctCount < 2 && !hasRetried) { setHasRetried(true); setView('reading-active'); } else calculateFinalResult();
+    if (correctCount < storyData.questions.length && !hasRetried) { setHasRetried(true); setView('reading-active'); } else calculateFinalResult();
   };
 
   const calculateFinalResult = async () => {
@@ -566,7 +612,8 @@ export default function App() {
         setIsUploading(false);
     }
 
-    const aiEvaluation = await evaluateReadingWithAI(storyData.text, tempStats.timeSeconds, tempStats.wpm, correctCount, audioUrl);
+    const maxScore = storyData.questions.length;
+    const aiEvaluation = await evaluateReadingWithAI(storyData.text, tempStats.timeSeconds, tempStats.wpm, correctCount, maxScore, audioUrl);
     
     let currentStreak = savedProfile?.streak || 0;
     const todayStr = new Date().toISOString().split('T')[0];
@@ -589,7 +636,8 @@ export default function App() {
     const timeString = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
     const fullDateTime = `${dateString} - ${timeString}`;
 
-    const newResult = { name: studentName, avatar: studentAvatar, interest: interest, level: level, words: tempStats.words, timeSeconds: tempStats.timeSeconds, wpm: tempStats.wpm, compScore: correctCount, badge: earnedBadge, audioUrl: firebaseAudioUrl || null, aiEvaluation, streakAchieved: currentStreak, date: fullDateTime, timestamp: serverTimestamp() };
+    // level bilgisini 'Ödev' yaparak kaydediyoruz ki öğretmen panelinde anlaşılsın
+    const newResult = { name: studentName, avatar: studentAvatar, interest: interest, level: level, words: tempStats.words, timeSeconds: tempStats.timeSeconds, wpm: tempStats.wpm, compScore: correctCount, maxScore: maxScore, badge: earnedBadge, audioUrl: firebaseAudioUrl || null, aiEvaluation, streakAchieved: currentStreak, date: fullDateTime, timestamp: serverTimestamp() };
     
     setReadingResult(newResult); setIsEvaluating(false); setView('result');
     try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'stats'), newResult); } catch (e) {}
@@ -658,6 +706,11 @@ export default function App() {
       <style>{`
         @keyframes pendulum { 0% { transform: translateX(-35vw); } 50% { transform: translateX(35vw); } 100% { transform: translateX(-35vw); } }
         .animate-pendulum { animation: pendulum 3s infinite ease-in-out; }
+        @media print {
+          body * { visibility: hidden; }
+          #print-section, #print-section * { visibility: visible; }
+          #print-section { position: absolute; left: 0; top: 0; width: 100%; }
+        }
       `}</style>
 
       {!['teacher-login', 'teacher'].includes(view) && (
@@ -701,6 +754,12 @@ export default function App() {
                           <span className="text-3xl drop-shadow-md">🕵️‍♂️</span>
                           <span className="font-black text-fuchsia-700 text-2xl">x {stats.filter(s => s.name === (savedProfile?.studentName || studentName) && s.badge).length}</span>
                        </div>
+                       {teacherStars > 0 && (
+                         <div className="bg-white px-4 py-2 rounded-2xl flex items-center gap-3 shadow-sm border-2 border-amber-300 animate-pulse">
+                            <span className="text-3xl drop-shadow-md">🌟</span>
+                            <span className="font-black text-amber-600 text-2xl">x {teacherStars} Özel Yıldız</span>
+                         </div>
+                       )}
                     </div>
                  </div>
               </div>
@@ -755,9 +814,14 @@ export default function App() {
                 )}
 
                 {activeHomework && (
-                  <div className="p-6 bg-amber-300 rounded-[2rem] border-b-[8px] border-amber-500 shadow-xl">
-                    <h3 className="text-3xl font-black text-amber-900 mb-4">📚 Yeni Ödevin Var!</h3>
-                    <button onClick={handleStartHomework} className="w-full bg-white text-amber-600 text-xl font-black py-3 rounded-xl shadow-lg">GÖREVİ BAŞLAT 🚀</button>
+                  <div className="p-6 bg-amber-300 rounded-[2rem] border-b-[8px] border-amber-500 shadow-xl relative overflow-hidden">
+                    {activeHomework.deadline && (
+                       <div className="absolute top-0 right-0 bg-rose-500 text-white font-bold px-3 py-1 rounded-bl-xl shadow-md text-sm">
+                          Süreli Ödev ⏱️
+                       </div>
+                    )}
+                    <h3 className="text-3xl font-black text-amber-900 mb-4 mt-2">📚 Yeni Ödevin Var!</h3>
+                    <button onClick={handleStartHomework} className="w-full bg-white text-amber-600 text-xl font-black py-3 rounded-xl shadow-lg hover:scale-105 transition-transform">GÖREVİ BAŞLAT 🚀</button>
                   </div>
                 )}
 
@@ -825,15 +889,15 @@ export default function App() {
                 </button>
 
                 <button onClick={() => academyLevel >= 4 ? startMetronome() : null} className={`p-8 border-4 rounded-[2rem] text-left relative overflow-hidden transition-all ${academyLevel >= 4 ? 'bg-fuchsia-50 border-fuchsia-200 hover:bg-fuchsia-100 cursor-pointer group' : 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'}`}>
-                   <h3 className={`text-2xl font-black mb-2 ${academyLevel >= 4 ? 'text-fuchsia-800' : 'text-slate-500'}`}>4. Metronom Okuma</h3>
-                   <p className={`font-bold ${academyLevel >= 4 ? 'text-fuchsia-600' : 'text-slate-400'}`}>Ritmik blok okuma simülatörü.</p>
+                   <h3 className={`text-2xl font-black mb-2 ${academyLevel >= 4 ? 'text-fuchsia-800' : 'text-slate-500'}`}>4. Metronome</h3>
+                   <p className={`font-bold ${academyLevel >= 4 ? 'text-fuchsia-600' : 'text-slate-400'}`}>Ritmik okuma simülatörü.</p>
                    <div className={`absolute right-4 top-1/2 -translate-y-1/2 text-5xl ${academyLevel >= 4 ? 'text-fuchsia-300 group-hover:scale-110' : 'text-slate-300'}`}>{academyLevel >= 4 ? <Unlock /> : <Lock />}</div>
                 </button>
              </div>
           </div>
         )}
 
-        {/* --- YÖNERGE EKRANLARI (READY) VE AKTİF EKRANLAR --- */}
+        {/* --- YÖNERGE EKRANLARI --- */}
         {view === 'academy-warmup-ready' && (
            <div className="max-w-2xl mx-auto mt-20 text-center bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-sky-200 relative">
               <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-sky-600 p-4 rounded-full shadow-xl border-4 border-sky-100"><ArrowLeft /></button>
@@ -892,9 +956,9 @@ export default function App() {
               <div className="bg-amber-50 p-4 rounded-2xl border-4 border-amber-100 mb-8">
                  <p className="font-black text-amber-800 mb-4">Kendine uygun hızı seç:</p>
                  <div className="flex gap-2">
-                    <button onClick={() => setFlashSpeed(2000)} className={`flex-1 py-3 rounded-xl font-black text-lg ${flashSpeed === 2000 ? 'bg-emerald-400 text-white shadow-inner' : 'bg-white text-emerald-600 border-2 border-emerald-200'}`}>🐢 Yavaş</button>
-                    <button onClick={() => setFlashSpeed(1000)} className={`flex-1 py-3 rounded-xl font-black text-lg ${flashSpeed === 1000 ? 'bg-amber-400 text-white shadow-inner' : 'bg-white text-amber-600 border-2 border-amber-200'}`}>🐇 Normal</button>
-                    <button onClick={() => setFlashSpeed(600)} className={`flex-1 py-3 rounded-xl font-black text-lg ${flashSpeed === 600 ? 'bg-rose-400 text-white shadow-inner' : 'bg-white text-rose-600 border-2 border-rose-200'}`}>🐆 Hızlı</button>
+                    <button onClick={() => setFlashSpeed(2000)} className={`flex-1 py-3 rounded-xl font-black text-lg ${flashSpeed === 2000 ? 'bg-emerald-400 text-white shadow-inner' : 'bg-white text-emerald-600 border-2 border-emerald-200'}`}>🐢 Yavaş (2sn)</button>
+                    <button onClick={() => setFlashSpeed(1000)} className={`flex-1 py-3 rounded-xl font-black text-lg ${flashSpeed === 1000 ? 'bg-amber-400 text-white shadow-inner' : 'bg-white text-amber-600 border-2 border-amber-200'}`}>🐇 Normal (1sn)</button>
+                    <button onClick={() => setFlashSpeed(600)} className={`flex-1 py-3 rounded-xl font-black text-lg ${flashSpeed === 600 ? 'bg-rose-400 text-white shadow-inner' : 'bg-white text-rose-600 border-2 border-rose-200'}`}>🐆 Hızlı (0.6sn)</button>
                  </div>
               </div>
 
@@ -965,7 +1029,7 @@ export default function App() {
           <div className="max-w-md mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl mt-20 text-center">
              <Loader2 className="w-20 h-20 text-sky-500 animate-spin mx-auto mb-6" />
              <h2 className="text-3xl font-black text-sky-600">Sana Özel Metin Hazırlanıyor...</h2>
-             <p className="text-sky-800 font-bold mt-4">Yapay zeka seviyene göre uyarlıyor 🤖</p>
+             <p className="text-sky-800 font-bold mt-4">Geçmiş okumalarına göre uyarlanıyor 🤖</p>
           </div>
         )}
 
@@ -1028,7 +1092,7 @@ export default function App() {
                        </div>
                      </div>
                    ))}
-                   <button onClick={checkAnswers} disabled={Object.keys(answers).length < 2} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-3xl font-black border-b-8 border-sky-700 disabled:opacity-50 disabled:border-b-0 disabled:translate-y-2 hover:bg-sky-400 transition-all">KARNEMİ GÖSTER 🏆</button>
+                   <button onClick={checkAnswers} disabled={Object.keys(answers).length < storyData.questions.length} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-3xl font-black border-b-8 border-sky-700 disabled:opacity-50 disabled:border-b-0 disabled:translate-y-2 hover:bg-sky-400 transition-all">KARNEMİ GÖSTER 🏆</button>
                  </div>
                </div>
              )}
@@ -1062,7 +1126,7 @@ export default function App() {
              </div>
              <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white p-4 rounded-xl shadow-sm font-bold"><span className="text-amber-500 text-3xl block">{readingResult.wpm}</span> Hız (wpm)</div>
-                <div className="bg-white p-4 rounded-xl shadow-sm font-bold"><span className="text-emerald-500 text-3xl block">{readingResult.compScore}/2</span> Doğru</div>
+                <div className="bg-white p-4 rounded-xl shadow-sm font-bold"><span className="text-emerald-500 text-3xl block">{readingResult.compScore}/{readingResult.maxScore}</span> Doğru</div>
              </div>
              <button onClick={()=>{setView('student-setup')}} className="w-full bg-sky-500 text-white py-5 rounded-2xl text-2xl font-black shadow-lg">YENİDEN OYNA 🎮</button>
           </div>
@@ -1071,7 +1135,7 @@ export default function App() {
         {view === 'teacher-login' && (
            <div className="max-w-md mx-auto bg-white/95 p-10 rounded-[2rem] shadow-2xl mt-20">
               <h2 className="text-3xl font-black text-emerald-600 text-center mb-8">Öğretmen Girişi</h2>
-              <form onSubmit={e => { e.preventDefault(); if (teacherPassword === actualTeacherPassword) { setTeacherTab('stats'); setView('teacher'); setPasswordError(false); } else setPasswordError(true); }} className="space-y-6">
+              <form onSubmit={e => { e.preventDefault(); if (teacherPassword === actualTeacherPassword) { setTeacherTab('radar'); setView('teacher'); setPasswordError(false); } else setPasswordError(true); }} className="space-y-6">
                  <input type="password" value={teacherPassword} onChange={e=>setTeacherPassword(e.target.value)} className="w-full p-4 border-4 rounded-xl text-center text-4xl tracking-[1em] bg-white font-bold" placeholder="••••" maxLength={4} />
                  {passwordError && <p className="text-rose-500 font-bold text-center">Hatalı Şifre!</p>}
                  <button type="submit" className="w-full bg-emerald-500 text-white py-5 rounded-xl text-2xl font-black border-b-6 border-emerald-700">GİRİŞ YAP 🚀</button>
@@ -1080,35 +1144,71 @@ export default function App() {
            </div>
         )}
 
+        {/* --- ÖĞRETMEN PANELİ --- */}
         {view === 'teacher' && (
-          <div className="max-w-6xl mx-auto bg-white/95 rounded-[3rem] shadow-2xl mt-12 min-h-[600px] p-10">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-4xl font-black text-emerald-600">Öğretmen Paneli</h2>
+          <div className="max-w-6xl mx-auto bg-white/95 rounded-[3rem] shadow-2xl mt-12 min-h-[600px] p-10 relative">
+            <div className="flex justify-between items-center mb-8 no-print">
+              <h2 className="text-4xl font-black text-emerald-600">Sınıf Yönetim Merkezi</h2>
               <button onClick={() => setView('student-setup')} className="bg-emerald-100 text-emerald-700 px-6 py-3 rounded-full font-bold">Öğrenci Ekranına Dön</button>
             </div>
-            <div className="flex border-b-4 border-emerald-100 mb-8">
-              {['stats', 'students', 'homework', 'settings'].map(tab => (
-                <button key={tab} onClick={() => setTeacherTab(tab)} className={`flex-1 py-4 font-black capitalize ${teacherTab === tab ? 'text-emerald-700 border-b-8 border-emerald-500' : 'text-slate-400'}`}>{tab === 'stats' ? 'Sonuçlar' : tab === 'students' ? 'Öğrenciler' : tab === 'homework' ? 'Ödevler' : 'Ayarlar'}</button>
+            <div className="flex flex-wrap border-b-4 border-emerald-100 mb-8 no-print">
+              {[ {id:'radar', i:<Activity/>, l:'Sınıf Radarı'}, {id:'stats', i:<FileText/>, l:'Rapor & Arşiv'}, {id:'homework', i:<BookOpen/>, l:'Ödev Merkezi'}, {id:'students', i:<Users/>, l:'Öğrenciler'}, {id:'settings', i:<Settings/>, l:'Ayarlar'} ].map(tab => (
+                <button key={tab.id} onClick={() => setTeacherTab(tab.id)} className={`flex-1 flex items-center justify-center gap-2 py-4 font-black capitalize transition-all ${teacherTab === tab.id ? 'text-emerald-700 border-b-8 border-emerald-500 bg-emerald-50 rounded-t-xl' : 'text-slate-400 hover:text-emerald-500'}`}>
+                  {tab.i} {tab.l}
+                </button>
               ))}
             </div>
 
+            {/* RADAR SEKMESİ (Sınıf Risk ve Gelişim Tablosu) */}
+            {teacherTab === 'radar' && (
+              <div className="space-y-8">
+                 <h3 className="text-2xl font-black text-emerald-800">Sınıf Gelişim Radarı</h3>
+                 <div className="grid md:grid-cols-2 gap-6">
+                    <div className="bg-emerald-50 p-6 rounded-3xl border-4 border-emerald-200 shadow-sm">
+                       <h4 className="text-xl font-black text-emerald-600 mb-4 flex items-center gap-2"><TrendingUp/> Hızlanan Öğrenciler</h4>
+                       <ul className="space-y-3">
+                          {students.map(s => {
+                             const studentStats = stats.filter(r => r.name === s.name).reverse();
+                             if(studentStats.length >= 2 && Number(studentStats[0].wpm) > Number(studentStats[1].wpm)) {
+                               return <li key={s.id} className="bg-white p-3 rounded-xl shadow-sm border-l-4 border-emerald-500 font-bold text-emerald-800 flex justify-between"><span>{s.name}</span> <span className="text-emerald-500">+{Number(studentStats[0].wpm) - Number(studentStats[1].wpm)} WPM</span></li>;
+                             }
+                             return null;
+                          })}
+                       </ul>
+                    </div>
+                    <div className="bg-rose-50 p-6 rounded-3xl border-4 border-rose-200 shadow-sm">
+                       <h4 className="text-xl font-black text-rose-600 mb-4 flex items-center gap-2"><Activity/> Desteğe İhtiyacı Olanlar</h4>
+                       <ul className="space-y-3">
+                          {students.map(s => {
+                             const studentStats = stats.filter(r => r.name === s.name).reverse();
+                             if(studentStats.length >= 2 && Number(studentStats[0].wpm) < Number(studentStats[1].wpm)) {
+                               return <li key={s.id} className="bg-white p-3 rounded-xl shadow-sm border-l-4 border-rose-500 font-bold text-rose-800 flex justify-between"><span>{s.name}</span> <span className="text-rose-500">{Number(studentStats[0].wpm) - Number(studentStats[1].wpm)} WPM</span></li>;
+                             }
+                             return null;
+                          })}
+                       </ul>
+                    </div>
+                 </div>
+              </div>
+            )}
+
+            {/* RAPOR & ARŞİV SEKMESİ */}
             {teacherTab === 'stats' && (
-              <div>
-                <div className="mb-6 flex items-center gap-4 bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100">
-                  <label className="font-black text-emerald-800 text-lg">Öğrenci Gelişimi:</label>
-                  <select
-                    value={selectedStudentForProgress || ''}
-                    onChange={(e) => setSelectedStudentForProgress(e.target.value || null)}
-                    className="flex-1 p-3 border-4 border-emerald-200 rounded-xl font-bold text-emerald-900 bg-white outline-none"
-                  >
-                    <option value="">Tüm Sınıfın Son Okumaları (Genel Liste)</option>
+              <div id="print-section">
+                <div className="mb-6 flex items-center gap-4 bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100 no-print">
+                  <label className="font-black text-emerald-800 text-lg">Öğrenci Seç:</label>
+                  <select value={selectedStudentForProgress || ''} onChange={(e) => setSelectedStudentForProgress(e.target.value || null)} className="flex-1 p-3 border-4 border-emerald-200 rounded-xl font-bold text-emerald-900 bg-white outline-none">
+                    <option value="">Tüm Sınıf (Genel Liste)</option>
                     {students.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                   </select>
+                  {selectedStudentForProgress && (
+                     <button onClick={() => window.print()} className="bg-sky-500 hover:bg-sky-400 text-white p-3 rounded-xl shadow-md font-bold flex items-center gap-2"><Printer/> Veli PDF Çıktısı</button>
+                  )}
                 </div>
 
                 {selectedStudentForProgress && (
                   <div className="bg-white p-6 rounded-2xl border-4 border-emerald-100 mb-6 shadow-sm overflow-x-auto">
-                    <h4 className="font-black text-emerald-800 mb-8 text-center">Okuma Hızı Gelişim Grafiği (WPM)</h4>
+                    <h4 className="font-black text-emerald-800 mb-8 text-center">{selectedStudentForProgress} - Okuma Hızı Gelişim Grafiği (WPM)</h4>
                     {(() => {
                       const studentStats = [...stats].filter(r => r.name === selectedStudentForProgress).reverse();
                       if (studentStats.length === 0) return <div className="text-center text-emerald-600 font-bold">Grafik oluşturulacak veri yok.</div>;
@@ -1118,7 +1218,6 @@ export default function App() {
                       const chartHeight = 200;
                       const pointWidth = 80; 
                       const chartWidth = Math.max(studentStats.length * pointWidth, 600);
-                      
                       const points = studentStats.map((row, idx) => {
                          const x = idx * pointWidth + 40; 
                          const y = chartHeight - ((Number(row.wpm) || 0) / maxWpm) * chartHeight;
@@ -1129,15 +1228,13 @@ export default function App() {
                          <div className="w-full overflow-x-auto pb-4">
                            <svg width={chartWidth} height={chartHeight + 40} className="mx-auto block">
                              <line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#e2e8f0" strokeWidth="2" />
-                             <line x1="0" y1={chartHeight/2} x2={chartWidth} y2={chartHeight/2} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="5,5" />
-                             <polyline points={points} fill="none" stroke="#10b981" strokeWidth="4" strokeLinejoin="round" className="drop-shadow-sm" />
+                             <polyline points={points} fill="none" stroke="#10b981" strokeWidth="4" strokeLinejoin="round" />
                              {studentStats.map((row, idx) => {
                                 const x = idx * pointWidth + 40;
                                 const y = chartHeight - ((Number(row.wpm) || 0) / maxWpm) * chartHeight;
                                 return (
-                                  <g key={idx} className="group">
-                                    <circle cx={x} cy={y} r="20" fill="transparent" className="cursor-pointer" />
-                                    <circle cx={x} cy={y} r="6" fill="#10b981" stroke="#fff" strokeWidth="2" className="group-hover:r-[8px] transition-all cursor-pointer shadow-sm" />
+                                  <g key={idx}>
+                                    <circle cx={x} cy={y} r="6" fill="#10b981" stroke="#fff" strokeWidth="2" />
                                     <text x={x} y={y - 15} textAnchor="middle" className="text-[14px] font-black fill-emerald-700">{row.wpm}</text>
                                     <text x={x} y={chartHeight + 25} textAnchor="middle" className="text-[10px] font-bold fill-slate-400">{row.date?.split(' - ')[0]}</text>
                                   </g>
@@ -1152,39 +1249,34 @@ export default function App() {
 
                 {selectedStudentForProgress ? (
                   <div className="space-y-4">
-                    <h3 className="text-2xl font-black text-emerald-600 mb-4">📈 {selectedStudentForProgress} - Geçmiş Okumaları</h3>
+                    <h3 className="text-2xl font-black text-emerald-600 mb-4 flex items-center gap-2"><Mic/> Ses Gelişim Arşivi</h3>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left bg-emerald-50 rounded-2xl">
                         <thead>
                            <tr className="border-b-4 border-emerald-100">
                              <th className="p-4">Tarih - Saat</th>
-                             <th className="p-4">Konu</th>
+                             <th className="p-4">Tür</th>
                              <th className="p-4 text-center">Hız (wpm)</th>
                              <th className="p-4 text-center">Skor</th>
-                             <th className="p-4 text-center">Ses Kaydı</th>
-                             <th className="p-4 text-center">İşlem</th>
+                             <th className="p-4 text-center no-print">Ses Kaydı</th>
+                             <th className="p-4 text-center no-print">İşlem</th>
                            </tr>
                         </thead>
                         <tbody>
                           {stats.filter(r => r.name === selectedStudentForProgress).map(row => (
-                            <tr key={row.id} className="border-b-2 border-white font-bold text-emerald-900 hover:bg-emerald-100/50 transition-colors">
+                            <tr key={row.id} className="border-b-2 border-white font-bold text-emerald-900">
                               <td className="p-4">{row.date || 'Belirtilmedi'}</td>
-                              <td className="p-4">{row.interest}</td>
+                              <td className="p-4">{row.level === 'Ödev' ? <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded-lg text-sm">Ödev</span> : row.interest}</td>
                               <td className="p-4 text-center">{row.wpm}</td>
-                              <td className="p-4 text-center">{row.compScore}/2 {row.badge}</td>
-                              <td className="p-4 text-center">
-                                {row.audioUrl ? <audio src={row.audioUrl} controls className="h-10 w-full max-w-[200px] mx-auto shadow-sm rounded-full" /> : <span className="text-slate-400 text-sm bg-slate-100 px-3 py-1 rounded-full">Yok</span>}
+                              <td className="p-4 text-center">{row.compScore}/{row.maxScore || 2}</td>
+                              <td className="p-4 text-center no-print">
+                                {row.audioUrl ? <audio src={row.audioUrl} controls className="h-10 w-full max-w-[200px] mx-auto" /> : <span className="text-slate-400">Yok</span>}
                               </td>
-                              <td className="p-4 text-center">
-                                <button onClick={() => handleDeleteStat(row.id)} className="bg-rose-100 text-rose-600 p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-colors" title="Kaydı Sil">
-                                  <X size={18} />
-                                </button>
+                              <td className="p-4 text-center no-print">
+                                <button onClick={() => handleDeleteStat(row.id)} className="bg-rose-100 text-rose-600 p-2 rounded-lg hover:bg-rose-500 hover:text-white"><Trash2 size={18} /></button>
                               </td>
                             </tr>
                           ))}
-                          {stats.filter(r => r.name === selectedStudentForProgress).length === 0 && (
-                            <tr><td colSpan="6" className="p-4 text-center text-emerald-600 font-bold">Henüz okuma kaydı yok.</td></tr>
-                          )}
                         </tbody>
                       </table>
                     </div>
@@ -1196,34 +1288,29 @@ export default function App() {
                          <tr className="border-b-4 border-emerald-100">
                            <th className="p-4">İsim</th>
                            <th className="p-4">Tarih - Saat</th>
-                           <th className="p-4">Konu</th>
+                           <th className="p-4">Tür</th>
                            <th className="p-4 text-center">Hız (wpm)</th>
                            <th className="p-4 text-center">Skor</th>
-                           <th className="p-4 text-center">Ses Kaydı</th>
-                           <th className="p-4 text-center">İşlem</th>
+                           <th className="p-4 text-center no-print">Ses Kaydı</th>
+                           <th className="p-4 text-center no-print">İşlem</th>
                          </tr>
                        </thead>
                        <tbody>
                          {stats.map(row => (
-                           <tr key={row.id} className="border-b-2 border-white font-bold text-emerald-900 hover:bg-emerald-100/50 transition-colors">
+                           <tr key={row.id} className="border-b-2 border-white font-bold text-emerald-900">
                              <td className="p-4">{row.name}</td>
                              <td className="p-4 text-sm text-emerald-700">{row.date || 'Belirtilmedi'}</td>
-                             <td className="p-4">{row.interest}</td>
+                             <td className="p-4">{row.level === 'Ödev' ? <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded-lg text-sm">Ödev</span> : row.interest}</td>
                              <td className="p-4 text-center">{row.wpm}</td>
-                             <td className="p-4 text-center">{row.compScore}/2 {row.badge}</td>
-                             <td className="p-4 text-center">
-                               {row.audioUrl ? <audio src={row.audioUrl} controls className="h-10 w-full max-w-[200px] mx-auto shadow-sm rounded-full" /> : <span className="text-slate-400 text-sm bg-slate-100 px-3 py-1 rounded-full">Yok</span>}
+                             <td className="p-4 text-center">{row.compScore}/{row.maxScore || 2}</td>
+                             <td className="p-4 text-center no-print">
+                               {row.audioUrl ? <audio src={row.audioUrl} controls className="h-10 w-full max-w-[200px] mx-auto" /> : <span className="text-slate-400">Yok</span>}
                              </td>
-                             <td className="p-4 text-center">
-                               <button onClick={() => handleDeleteStat(row.id)} className="bg-rose-100 text-rose-600 p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-colors" title="Kaydı Sil">
-                                 <X size={18} />
-                               </button>
+                             <td className="p-4 text-center no-print">
+                               <button onClick={() => handleDeleteStat(row.id)} className="bg-rose-100 text-rose-600 p-2 rounded-lg hover:bg-rose-500 hover:text-white"><Trash2 size={18} /></button>
                              </td>
                            </tr>
                          ))}
-                         {stats.length === 0 && (
-                            <tr><td colSpan="7" className="p-4 text-center text-emerald-600 font-bold">Henüz hiç okuma yapılmadı.</td></tr>
-                         )}
                        </tbody>
                      </table>
                   </div>
@@ -1231,38 +1318,116 @@ export default function App() {
               </div>
             )}
 
+            {/* ÖDEV MERKEZİ */}
+            {teacherTab === 'homework' && (
+              <div className="space-y-6">
+                
+                {/* Aktif Ödev Kontrol Paneli */}
+                {activeHomework && (
+                   <div className="bg-amber-50 p-6 rounded-2xl border-4 border-amber-200 shadow-sm flex items-center justify-between">
+                      <div>
+                         <h3 className="text-xl font-black text-amber-800">Şu An Yayında Olan Aktif Ödev Var!</h3>
+                         <p className="font-bold text-amber-600 mt-2">Bitiş Süresi: {activeHomework.deadline ? new Date(activeHomework.deadline).toLocaleString('tr-TR') : 'Süresiz'}</p>
+                      </div>
+                      <button onClick={handleRemoveHomework} className="bg-rose-500 hover:bg-rose-600 text-white px-6 py-4 rounded-xl font-black shadow-md flex items-center gap-2"><Trash2/> Aktif Ödevi Kaldır</button>
+                   </div>
+                )}
+
+                <div className="bg-fuchsia-50 p-6 rounded-2xl border-4 border-fuchsia-100 flex flex-wrap gap-4 items-center">
+                   <h3 className="w-full text-xl font-black text-fuchsia-800 mb-2">🤖 Yapay Zeka ile Ödev Üret (Yeni)</h3>
+                   <input type="text" placeholder="Ödev Konusu (Örn: Uzaylı Dostlar)" value={hwTopic} onChange={e=>setHwTopic(e.target.value)} className="flex-1 p-3 border-4 border-fuchsia-200 rounded-xl font-bold" />
+                   <select value={hwLevel} onChange={e=>setHwLevel(e.target.value)} className="p-3 border-4 border-fuchsia-200 rounded-xl font-bold bg-white text-fuchsia-900">
+                     <option value="1">Kolay</option> <option value="2">Orta</option> <option value="3">Zor</option>
+                   </select>
+                   <button onClick={handleGenerateHomeworkAI} disabled={isGeneratingHw} className="bg-fuchsia-500 hover:bg-fuchsia-400 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition-all">
+                     {isGeneratingHw ? <Loader2 className="animate-spin" /> : <Sparkles />} Üret
+                   </button>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                   <div>
+                     <label className="block text-lg font-black text-emerald-800 mb-2">Okuma Metni:</label>
+                     <textarea value={hwText} onChange={e => setHwText(e.target.value)} className="w-full p-4 border-4 border-emerald-200 rounded-2xl h-40 font-bold" placeholder="Okuma metni..." />
+                   </div>
+                   <div>
+                     <label className="block text-lg font-black text-amber-800 mb-2 flex items-center gap-2"><Calendar/> Teslim Süresi (Otomatik Kapatma):</label>
+                     <input type="datetime-local" value={hwDeadline} onChange={e => setHwDeadline(e.target.value)} className="w-full p-4 border-4 border-amber-200 rounded-2xl font-bold bg-white outline-none text-amber-900" />
+                     <p className="text-sm font-bold text-amber-600 mt-2">Seçilen tarih geldiğinde ödev öğrencilerin ekranından otomatik silinir.</p>
+                   </div>
+                </div>
+                
+                <div className="space-y-4">
+                   <h3 className="text-xl font-black text-emerald-800">Sorular:</h3>
+                   {hwQuestions.map((q, qIndex) => (
+                      <div key={qIndex} className="bg-emerald-50 p-6 rounded-2xl border-4 border-emerald-100 space-y-3 relative">
+                         {hwQuestions.length > 1 && (
+                            <button onClick={() => setHwQuestions(hwQuestions.filter((_, i) => i !== qIndex))} className="absolute top-4 right-4 text-rose-500 bg-rose-100 p-2 rounded-lg hover:bg-rose-500 hover:text-white"><Trash2 size={18}/></button>
+                         )}
+                         <label className="font-black text-emerald-800">Soru {qIndex + 1}:</label>
+                         <input type="text" value={q.q} onChange={e => { const newQs = [...hwQuestions]; newQs[qIndex].q = e.target.value; setHwQuestions(newQs); }} className="w-full p-3 border-2 border-emerald-200 rounded-lg font-bold" placeholder="Soru cümlesi..." />
+                         <div className="grid grid-cols-3 gap-2">
+                           {[0, 1, 2].map(optIndex => (
+                              <input key={optIndex} type="text" value={q.options[optIndex]} onChange={e => { const newQs = [...hwQuestions]; newQs[qIndex].options[optIndex] = e.target.value; setHwQuestions(newQs); }} className="p-3 border-2 border-emerald-200 rounded-lg font-bold" placeholder={`${['A', 'B', 'C'][optIndex]} Şıkkı`} />
+                           ))}
+                         </div>
+                         <label className="font-bold text-emerald-700 text-sm">Doğru Cevap:</label>
+                         <select value={q.correct} onChange={e => { const newQs = [...hwQuestions]; newQs[qIndex].correct = Number(e.target.value); setHwQuestions(newQs); }} className="w-full p-3 border-2 border-emerald-200 rounded-lg font-bold">
+                            <option value={0}>A Şıkkı</option> <option value={1}>B Şıkkı</option> <option value={2}>C Şıkkı</option>
+                         </select>
+                      </div>
+                   ))}
+                   
+                   <button onClick={() => setHwQuestions([...hwQuestions, { q: '', options: ['', '', ''], correct: 0 }])} className="w-full bg-emerald-100 text-emerald-700 py-4 rounded-xl font-black border-4 border-emerald-200 border-dashed flex items-center justify-center gap-2 hover:bg-emerald-200"><Plus/> Yeni Soru Ekle</button>
+                </div>
+
+                <button onClick={handlePublishHomework} className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-5 rounded-2xl font-black text-2xl border-b-8 border-emerald-700 shadow-xl active:translate-y-2 active:border-b-0 transition-all mt-6 flex items-center justify-center gap-3"><Send/> Sınıfa Gönder</button>
+              </div>
+            )}
+
+            {/* ÖĞRENCİLER VE KİLİT YÖNETİMİ SEKMESİ */}
             {teacherTab === 'students' && (
               <div>
                 <div className="flex gap-4 mb-8">
-                  <input type="text" placeholder="Ad Soyad" value={newStudentName} onChange={e=>setNewStudentName(e.target.value)} className="flex-1 p-4 border-4 rounded-xl font-bold" />
-                  <input type="text" placeholder="Şifre" value={newStudentPassword} onChange={e=>setNewStudentPassword(e.target.value)} className="w-32 p-4 border-4 rounded-xl font-bold text-center" />
-                  <button onClick={handleAddStudent} className="bg-emerald-500 text-white font-bold px-8 rounded-xl">Ekle</button>
+                  <input type="text" placeholder="Ad Soyad" value={newStudentName} onChange={e=>setNewStudentName(e.target.value)} className="flex-1 p-4 border-4 border-emerald-200 rounded-xl font-bold" />
+                  <input type="text" placeholder="Şifre" value={newStudentPassword} onChange={e=>setNewStudentPassword(e.target.value)} className="w-32 p-4 border-4 border-emerald-200 rounded-xl font-bold text-center" />
+                  <button onClick={handleAddStudent} className="bg-emerald-500 text-white font-bold px-8 rounded-xl shadow-md">Ekle</button>
                 </div>
                 {students.length === 0 && <button onClick={handleLoadDefaultClass} className="bg-amber-100 text-amber-800 px-6 py-3 rounded-full font-bold mb-4">1/A Listesini Yükle</button>}
+                
                 <div className="space-y-4">
                   {students.map(s => (
-                    <div key={s.id} className="flex justify-between items-center p-4 bg-emerald-50 rounded-xl font-bold">
-                      <span className="flex-1 text-lg">{s.name}</span>
-                      <div className="flex items-center gap-3">
+                    <div key={s.id} className="flex flex-col md:flex-row justify-between items-center p-4 bg-emerald-50 rounded-2xl border-4 border-emerald-100 gap-4">
+                      <div className="flex-1 font-black text-emerald-900 text-xl flex items-center gap-3">
+                         {s.name} 
+                         {s.teacherStars > 0 && <span className="bg-amber-100 text-amber-600 text-sm px-2 py-1 rounded-full flex items-center gap-1">🌟 x{s.teacherStars}</span>}
+                      </div>
+                      
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                        {/* Öğretmen Yıldızı Butonu */}
+                        <button onClick={() => handleGiveTeacherStar(s.id, s.teacherStars)} className="bg-amber-400 text-white p-3 rounded-xl shadow-md font-bold hover:scale-105 transition-transform" title="Motivasyon Yıldızı Gönder"><Star size={20}/></button>
+
+                        {/* Akademi Seviye Yönetimi */}
+                        <div className="bg-white border-2 border-indigo-200 rounded-xl flex items-center p-1 font-bold text-indigo-800 text-sm">
+                           <span className="px-2">Akademi Lvl:</span>
+                           <select value={s.academyLevel || 1} onChange={(e) => updateAcademyLevel(Number(e.target.value), s.id)} className="bg-indigo-50 border border-indigo-100 rounded-lg p-1 outline-none">
+                              <option value={1}>1. Isınma</option> <option value={2}>2. Schulte</option> <option value={3}>3. Flaş</option> <option value={4}>4. Metronom</option>
+                           </select>
+                        </div>
+
+                        {/* Şifre Yönetimi */}
                         {editingPasswords[s.id] !== undefined ? (
                           <div className="flex items-center gap-2">
-                            <input 
-                              type="text" 
-                              value={editingPasswords[s.id]} 
-                              onChange={(e) => setEditingPasswords({...editingPasswords, [s.id]: e.target.value})}
-                              className="w-24 p-2 border-2 border-emerald-300 rounded-lg text-center font-bold outline-none"
-                              maxLength={4}
-                            />
-                            <button onClick={() => handleUpdatePassword(s.id, editingPasswords[s.id])} className="bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold">Kaydet</button>
-                            <button onClick={() => { const newEd = {...editingPasswords}; delete newEd[s.id]; setEditingPasswords(newEd); }} className="bg-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold">İptal</button>
+                            <input type="text" value={editingPasswords[s.id]} onChange={(e) => setEditingPasswords({...editingPasswords, [s.id]: e.target.value})} className="w-20 p-2 border-2 border-emerald-300 rounded-lg text-center font-bold outline-none" maxLength={4} />
+                            <button onClick={() => handleUpdatePassword(s.id, editingPasswords[s.id])} className="bg-emerald-500 text-white px-3 py-2 rounded-lg font-bold"><Check size={20}/></button>
+                            <button onClick={() => { const newEd = {...editingPasswords}; delete newEd[s.id]; setEditingPasswords(newEd); }} className="bg-slate-300 text-slate-700 px-3 py-2 rounded-lg font-bold"><X size={20}/></button>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <span className="bg-white px-4 py-2 rounded-lg border-2 border-emerald-200 text-emerald-700 tracking-widest font-bold">{s.password}</span>
-                            <button onClick={() => setEditingPasswords({...editingPasswords, [s.id]: s.password})} className="bg-sky-500 text-white px-4 py-2 rounded-lg font-bold">Şifre Değiştir</button>
+                            <span className="bg-white px-3 py-2 rounded-lg border-2 border-emerald-200 text-emerald-700 tracking-widest font-bold">{s.password}</span>
+                            <button onClick={() => setEditingPasswords({...editingPasswords, [s.id]: s.password})} className="bg-sky-500 text-white px-4 py-2 rounded-xl shadow-md font-bold text-sm">Şifre Değiştir</button>
                           </div>
                         )}
-                        <button onClick={() => handleDeleteStudent(s.id, s.name)} className="bg-rose-500 text-white px-4 py-2 rounded-lg font-bold">Sil</button>
+                        <button onClick={() => handleDeleteStudent(s.id, s.name)} className="bg-rose-100 text-rose-600 p-3 rounded-xl hover:bg-rose-500 hover:text-white transition-colors" title="Öğrenciyi Sil"><Trash2 size={20}/></button>
                       </div>
                     </div>
                   ))}
@@ -1270,71 +1435,14 @@ export default function App() {
               </div>
             )}
 
-            {teacherTab === 'homework' && (
-              <div className="space-y-6">
-                <div className="bg-fuchsia-50 p-6 rounded-2xl border-4 border-fuchsia-100 flex flex-wrap gap-4 items-center">
-                   <h3 className="w-full text-xl font-black text-fuchsia-800 mb-2">🤖 Yapay Zeka ile Ödev Üret</h3>
-                   <input type="text" placeholder="Ödev Konusu (Örn: Uzaylı Dostlar)" value={hwTopic} onChange={e=>setHwTopic(e.target.value)} className="flex-1 p-3 border-4 border-fuchsia-200 rounded-xl font-bold" />
-                   <select value={hwLevel} onChange={e=>setHwLevel(e.target.value)} className="p-3 border-4 border-fuchsia-200 rounded-xl font-bold bg-white text-fuchsia-900">
-                     <option value="1">Kolay Seviye</option>
-                     <option value="2">Orta Seviye</option>
-                     <option value="3">Zor Seviye</option>
-                   </select>
-                   <button onClick={handleGenerateHomeworkAI} disabled={isGeneratingHw} className="bg-fuchsia-500 hover:bg-fuchsia-400 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition-all">
-                     {isGeneratingHw ? <Loader2 className="animate-spin" /> : <Sparkles />} Üret
-                   </button>
-                </div>
-
-                <div>
-                   <label className="block text-lg font-black text-emerald-800 mb-2">Okuma Metni:</label>
-                   <textarea value={hwForm.text} onChange={e => setHwForm({...hwForm, text: e.target.value})} className="w-full p-4 border-4 border-emerald-200 rounded-2xl h-40 font-bold" placeholder="Okuma metnini buraya yazın veya yapay zekaya ürettirin..." />
-                </div>
-                
-                <div className="grid md:grid-cols-2 gap-6">
-                   <div className="bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100 space-y-3">
-                      <label className="font-black text-emerald-800">Soru 1:</label>
-                      <input type="text" value={hwForm.q1} onChange={e=>setHwForm({...hwForm, q1: e.target.value})} className="w-full p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="Soru cümlesi..." />
-                      <div className="grid grid-cols-3 gap-2">
-                        <input type="text" value={hwForm.q1o1} onChange={e=>setHwForm({...hwForm, q1o1: e.target.value})} className="p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="A Şıkkı" />
-                        <input type="text" value={hwForm.q1o2} onChange={e=>setHwForm({...hwForm, q1o2: e.target.value})} className="p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="B Şıkkı" />
-                        <input type="text" value={hwForm.q1o3} onChange={e=>setHwForm({...hwForm, q1o3: e.target.value})} className="p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="C Şıkkı" />
-                      </div>
-                      <label className="font-bold text-emerald-700 text-sm">Doğru Cevap:</label>
-                      <select value={hwForm.q1c} onChange={e=>setHwForm({...hwForm, q1c: Number(e.target.value)})} className="w-full p-2 border-2 border-emerald-200 rounded-lg font-bold">
-                         <option value={0}>A Şıkkı</option>
-                         <option value={1}>B Şıkkı</option>
-                         <option value={2}>C Şıkkı</option>
-                      </select>
-                   </div>
-                   
-                   <div className="bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100 space-y-3">
-                      <label className="font-black text-emerald-800">Soru 2:</label>
-                      <input type="text" value={hwForm.q2} onChange={e=>setHwForm({...hwForm, q2: e.target.value})} className="w-full p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="Soru cümlesi..." />
-                      <div className="grid grid-cols-3 gap-2">
-                        <input type="text" value={hwForm.q2o1} onChange={e=>setHwForm({...hwForm, q2o1: e.target.value})} className="p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="A Şıkkı" />
-                        <input type="text" value={hwForm.q2o2} onChange={e=>setHwForm({...hwForm, q2o2: e.target.value})} className="p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="B Şıkkı" />
-                        <input type="text" value={hwForm.q2o3} onChange={e=>setHwForm({...hwForm, q2o3: e.target.value})} className="p-2 border-2 border-emerald-200 rounded-lg font-bold" placeholder="C Şıkkı" />
-                      </div>
-                      <label className="font-bold text-emerald-700 text-sm">Doğru Cevap:</label>
-                      <select value={hwForm.q2c} onChange={e=>setHwForm({...hwForm, q2c: Number(e.target.value)})} className="w-full p-2 border-2 border-emerald-200 rounded-lg font-bold">
-                         <option value={0}>A Şıkkı</option>
-                         <option value={1}>B Şıkkı</option>
-                         <option value={2}>C Şıkkı</option>
-                      </select>
-                   </div>
-                </div>
-
-                <button onClick={handlePublishHomework} className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-4 rounded-2xl font-black text-2xl border-b-8 border-emerald-700 shadow-xl active:translate-y-2 active:border-b-0 transition-all mt-4">Sınıfa Gönder 🚀</button>
-              </div>
-            )}
-
             {teacherTab === 'settings' && (
-              <div className="flex gap-4">
-                 <input type="text" placeholder="Yeni Yönetici Şifresi" value={newTeacherPasswordInput} onChange={e=>setNewTeacherPasswordInput(e.target.value)} className="flex-1 p-4 border-4 rounded-xl font-bold" />
-                 <button onClick={handleUpdateTeacherPassword} className="bg-emerald-500 text-white font-bold px-8 rounded-xl">Şifreyi Güncelle</button>
+              <div className="flex flex-col max-w-md mx-auto gap-4 mt-8">
+                 <label className="font-black text-emerald-800">Yönetici Şifresini Değiştir</label>
+                 <input type="text" placeholder="Yeni Şifre" value={newTeacherPasswordInput} onChange={e=>setNewTeacherPasswordInput(e.target.value)} className="p-4 border-4 border-emerald-200 rounded-xl font-bold" />
+                 <button onClick={handleUpdateTeacherPassword} className="bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-md">Şifreyi Güncelle</button>
               </div>
             )}
-            {teacherMsg && <p className="mt-4 font-bold text-emerald-600">{teacherMsg}</p>}
+            {teacherMsg && <p className="mt-6 text-center text-xl font-black text-emerald-600 animate-bounce">{teacherMsg}</p>}
           </div>
         )}
 
