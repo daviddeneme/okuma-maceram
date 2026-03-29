@@ -76,7 +76,8 @@ export default function App() {
   const [rememberMe, setRememberMe] = useState(false);
   const [savedProfile, setSavedProfile] = useState(null);
   const [user, setUser] = useState(null);
-  const [academyLevel, setAcademyLevel] = useState(1); // 1:Isınma, 2:Schulte, 3:Flaş, 4:Metronom
+  
+  const [academyLevel, setAcademyLevel] = useState(1);
 
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentPassword, setNewStudentPassword] = useState('1234');
@@ -104,12 +105,13 @@ export default function App() {
   const [schulteGrid, setSchulteGrid] = useState([]);
   const [schulteExpected, setSchulteExpected] = useState(1);
   
-  const flashWordsData = [{w:"Elma", o:["Armut","Elma","Muz"]}, {w:"Kalem", o:["Silgi","Defter","Kalem"]}, {w:"Kedi", o:["Kedi","Köpek","Kuş"]}];
+  const flashWordsData = [{w:"Top", o:["Koş","Top","Al"]}, {w:"Kalem", o:["Silgi","Defter","Kalem"]}, {w:"Mavi gök", o:["Kırmızı ev","Mavi gök","Sıcak çay"]}];
   const [flashStage, setFlashStage] = useState(0);
   const [isFlashShowing, setIsFlashShowing] = useState(false);
   const [flashMessage, setFlashMessage] = useState('');
+  const [flashSpeed, setFlashSpeed] = useState(1500); 
   
-  const [metronomeBPM, setMetronomeBPM] = useState(60); // 60 BPM = 1 sn
+  const [metronomeBPM, setMetronomeBPM] = useState(60); 
   const [metronomeIndex, setMetronomeIndex] = useState(-1);
   const metronomeText = "Bir varmış bir yokmuş. Küçük bir çocuk ormanda gezerken kocaman bir ağaç görmüş. Ağacın dallarında kırmızı elmalar parlıyormuş. Çocuk elmalardan birini alıp afiyetle yemiş.";
   const [metronomeChunks, setMetronomeChunks] = useState([]);
@@ -198,7 +200,17 @@ export default function App() {
     }
   };
 
-  // --- AKADEMİ MANTIKLARI ---
+  // --- AKADEMİ SESLİ YÖNERGE MANTIKLARI ---
+  const speakInstruction = (text) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = 'tr-TR';
+      msg.rate = 0.9;
+      window.speechSynthesis.speak(msg);
+    }
+  };
+
   const playTick = () => {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -212,12 +224,11 @@ export default function App() {
     } catch(e) {}
   };
 
-  // Isınma Zamanlayıcı
   useEffect(() => {
     let timer = null;
-    if (view === 'academy-warmup' && warmupTime > 0) {
+    if (view === 'academy-warmup-active' && warmupTime > 0) {
       timer = setTimeout(() => setWarmupTime(p => p - 1), 1000);
-    } else if (view === 'academy-warmup' && warmupTime === 0) {
+    } else if (view === 'academy-warmup-active' && warmupTime === 0) {
       updateAcademyLevel(2);
       showTeacherMessage("Gözlerin ısındı! Schulte Tablosu açıldı. 🔓");
       setView('academy-menu');
@@ -225,10 +236,9 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [view, warmupTime]);
 
-  // Metronom Oynatıcı
   useEffect(() => {
     let interval = null;
-    if (view === 'academy-metronome' && metronomeIndex < metronomeChunks.length) {
+    if (view === 'academy-metronome-active' && metronomeIndex < metronomeChunks.length) {
       interval = setInterval(() => {
         playTick();
         setMetronomeIndex((prev) => prev + 1);
@@ -241,7 +251,8 @@ export default function App() {
   const startSchulte = () => {
     setSchulteGrid([...Array(9)].map((_,i)=>i+1).sort(()=>Math.random()-0.5));
     setSchulteExpected(1);
-    setView('academy-schulte');
+    setView('academy-schulte-ready');
+    speakInstruction("Harika gidiyorsun! Şimdi bir dedektif gibi sayıları bulacağız. Lütfen gözünü tablonun tam ortasından hiç ayırma ve kenarlardaki sayıları birden dokuza kadar sırayla bulup tıkla. Hazırsan başla!");
   };
 
   const handleSchulteClick = (num) => {
@@ -257,13 +268,13 @@ export default function App() {
   };
 
   const startFlash = () => {
-    setFlashStage(0); setFlashMessage(''); setView('academy-flash');
-    triggerFlashWord();
+    setFlashStage(0); setFlashMessage(''); setView('academy-flash-ready');
+    speakInstruction("Şimdi gözlerinle fotoğraf çekme zamanı! Ekranda bir kelime şimşek gibi parlayıp kaybolacak. Onu aklında tut ve aşağıdaki seçeneklerden doğru olanı bul. Gözünü kırpma, hazırsan başla!");
   };
 
   const triggerFlashWord = () => {
     setIsFlashShowing(true);
-    setTimeout(() => { setIsFlashShowing(false); }, 300); // 300ms yanıp sönme
+    setTimeout(() => { setIsFlashShowing(false); }, flashSpeed); 
   };
 
   const handleFlashAnswer = (opt, correctOpt) => {
@@ -287,8 +298,9 @@ export default function App() {
   const startMetronome = () => {
     const words = metronomeText.split(/\s+/);
     const chunks = [];
-    for(let i=0; i<words.length; i+=2) chunks.push(words.slice(i, i+2).join(' ')); // İkili bloklar
-    setMetronomeChunks(chunks); setMetronomeIndex(0); setView('academy-metronome');
+    for(let i=0; i<words.length; i+=2) chunks.push(words.slice(i, i+2).join(' ')); 
+    setMetronomeChunks(chunks); setMetronomeIndex(-1); setView('academy-metronome-ready');
+    speakInstruction("İşte büyük görev! Arka planda çalan tik-tak sesinin ritmine uyarak ekrana gelen kelimeleri sesli bir şekilde oku. Ritimden hiç kopma. Hazırsan macerayı başlat!");
   };
   // -------------------------
 
@@ -356,7 +368,8 @@ export default function App() {
     } catch (e) { showTeacherMessage("❌ Hata."); }
   };
 
-  const callGeminiAPI = async (topic, selectedLevel) => {
+  // --- ADAPTİF YAPAY ZEKA MOTORU ---
+  const callGeminiAPI = async (topic, selectedLevel, avgWpm, avgScore) => {
     const apiKey = EXTERNAL_GEMINI_API_KEY; 
     if (!apiKey) throw new Error("API Anahtarı bulunamadı.");
 
@@ -364,11 +377,18 @@ export default function App() {
     const studentNamesStr = students.map(s => s.name.split(' ')[0]).join(', ');
     const categories = ['renk', 'hayvan', 'meyve', 'aile üyesi', 'giysi', 'oyuncak', 'duygu', 'doğa (ağaç, çiçek, bulut vb.)'];
     const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+    
     let levelInstructions = selectedLevel === '1' ? "KOLAY SEVİYE: Kesinlikle 30 ile 50 kelime arasında yaz." : selectedLevel === '2' ? "ORTA SEVİYE: Kesinlikle 50 ile 90 kelime arasında yaz." : "ZOR SEVİYE: Kesinlikle 90 ile 140 kelime arasında yaz.";
     
+    // YENİ: Vygotsky Yakınsak Gelişim Alanı Adaptasyonu
+    const adaptiveInstruction = avgWpm > 0 
+      ? `ÖĞRENCİ PROFİLİ (UYARLANABİLİR EĞİTİM): Bu öğrencinin geçmiş okuma hızı ortalaması ${avgWpm} WPM ve okuduğunu anlama skoru ortalaması ${avgScore.toFixed(1)}/2. Lütfen metnin zorluğunu, kelime uzunluklarını ve anlamsal derinliğini bu öğrencinin seviyesini bir adım ileriye taşıyacak şekilde pedagojik olarak uyarla. Eğer hızı 40 WPM altındaysa karmaşık heceler (str, kr) kullanma. Anlama skoru 1.5'in altındaysa daha somut ve net olaylar kurgula.`
+      : `ÖĞRENCİ PROFİLİ: Bu öğrenci sistemi ilk kez kullanıyor. Standart 1. sınıf seviyesinde doğal ve pedagojik bir metin üret.`;
+
     const prompt = `Sen Türkçe dilini kusursuz, son derece doğal ve insansı bir şekilde kullanan ödüllü bir çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: "${topic}". 
     Şu kurallara SIKI SIKIYA UYMALISIN:
     ${levelInstructions}
+    ${adaptiveInstruction}
     EDEBI KALİTE: Cümleler birbirini kusursuzca tamamlamalı, sürükleyici ve doğal bir Türkçe ile yazılmalıdır.
     HAZİNE AVI: Hikayenin içine kesinlikle "${randomCategory}" kategorisine ait 3 farklı kelimeyi zorlama olmadan, çok doğal bir şekilde kurguya yedirerek yerleştir.
     DİKKAT KESİNLİKLE YASAK: Gizli kelimeleri veya metindeki herhangi bir kelimeyi ** (yıldız) veya başka bir işaretle ASLA VURGULAMA! Metin tamamen düz yazı olsun.
@@ -400,7 +420,7 @@ export default function App() {
     if (!hwTopic) { showTeacherMessage("⚠️ Lütfen bir ödev konusu yazın."); return; }
     setIsGeneratingHw(true); showTeacherMessage("⏳ Yapay zeka ödevi hazırlıyor, lütfen bekleyin...");
     try {
-      const aiData = await callGeminiAPI(hwTopic, hwLevel);
+      const aiData = await callGeminiAPI(hwTopic, hwLevel, 0, 0); // Ödev için standart
       setHwForm({
         text: aiData.text,
         q1: aiData.questions[0].q, q1o1: aiData.questions[0].options[0], q1o2: aiData.questions[0].options[1], q1o3: aiData.questions[0].options[2], q1c: aiData.questions[0].correct,
@@ -465,12 +485,21 @@ export default function App() {
   const startReadingSession = async (currentInterest, currentLevel, isHomework) => {
     setInterest(currentInterest); setLevel(currentLevel); setAnswers({}); setHasRetried(false); setAudioUrl(null); setIsReadingFinished(false); setShowHeceler(false); setFoundWords([]);
     setShowBadgeAnimation(false); setBadgeInCorner(false);
+    
+    // YENİ: Öğrencinin geçmiş verilerini hesapla ve adaptif sisteme gönder
+    const studentPastStats = stats.filter(s => s.name === studentName);
+    let avgWpm = 0; let avgScore = 0;
+    if (studentPastStats.length > 0) {
+       avgWpm = Math.round(studentPastStats.reduce((acc, curr) => acc + (Number(curr.wpm) || 0), 0) / studentPastStats.length);
+       avgScore = studentPastStats.reduce((acc, curr) => acc + (Number(curr.compScore) || 0), 0) / studentPastStats.length;
+    }
+
     if (isHomework) {
       setStoryData(activeHomework); setView('reading-ready');
     } else {
       setIsGeneratingStory(true);
       try {
-        const aiData = await callGeminiAPI(currentInterest, currentLevel);
+        const aiData = await callGeminiAPI(currentInterest, currentLevel, avgWpm, avgScore);
         setStoryData(aiData); setView('reading-ready');
       } catch (err) {
         setLoginError("Sunucu şuan çok yoğun daha sonra tekrar deneyiniz."); setView('student-setup');
@@ -626,7 +655,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-fuchsia-200 font-sans flex flex-col relative pt-8 pb-12 overflow-x-hidden">
       
-      {/* Sarkaç CSS Animasyonu (GPU Destekli) */}
       <style>{`
         @keyframes pendulum { 0% { transform: translateX(-35vw); } 50% { transform: translateX(35vw); } 100% { transform: translateX(-35vw); } }
         .animate-pendulum { animation: pendulum 3s infinite ease-in-out; }
@@ -759,7 +787,6 @@ export default function App() {
 
                 <div className="space-y-4">
                    <button onClick={handleStartFreeReading} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-2xl font-black border-b-8 border-sky-700 shadow-xl">HİKAYEMİ OLUŞTUR ✨</button>
-                   {/* YENİ HIZLI OKUMA AKADEMİSİ GİRİŞİ */}
                    <button onClick={() => { if (!validateStudent()) return; setLoginError(''); setView('academy-menu'); }} className="w-full bg-indigo-500 text-white py-4 rounded-2xl text-xl font-black border-b-8 border-indigo-700 shadow-xl flex items-center justify-center gap-3">
                      <Eye /> HIZLI OKUMA AKADEMİSİ
                    </button>
@@ -768,7 +795,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- YENİ AKADEMİ EKRANLARI --- */}
+        {/* --- AKADEMİ MENÜSÜ --- */}
         {view === 'academy-menu' && (
           <div className="max-w-4xl mx-auto bg-white/95 p-10 rounded-[3rem] shadow-2xl border-8 border-indigo-300 mt-20 text-center">
              <button onClick={() => setView('student-setup')} className="absolute top-8 right-8 bg-slate-100 p-3 rounded-full text-slate-600 hover:bg-slate-200"><X /></button>
@@ -776,7 +803,10 @@ export default function App() {
              <p className="text-xl font-bold text-slate-500 mb-10">Profesyonel göz eğitim simülatörü. Aşama aşama ilerle!</p>
              
              <div className="grid md:grid-cols-2 gap-6">
-                <button onClick={() => { setWarmupTime(30); setView('academy-warmup'); }} className="p-8 bg-sky-50 border-4 border-sky-200 rounded-[2rem] hover:bg-sky-100 transition-all text-left relative overflow-hidden group">
+                <button onClick={() => { 
+                  setView('academy-warmup-ready'); 
+                  speakInstruction("Hoş geldin! Şimdi göz kaslarımızı güçlendireceğiz. Ekranda sağa ve sola giden kırmızı topu takip etmeni istiyorum. Ama çok önemli bir kuralımız var: Kafanı kesinlikle çevirme! Sadece gözlerinle takip et. Hazırsan başla butonuna bas!"); 
+                }} className="p-8 bg-sky-50 border-4 border-sky-200 rounded-[2rem] hover:bg-sky-100 transition-all text-left relative overflow-hidden group">
                    <h3 className="text-2xl font-black text-sky-800 mb-2">1. Isınma (Sarkaç)</h3>
                    <p className="font-bold text-sky-600">Göz kaslarını esnetir. (30sn)</p>
                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sky-300 text-5xl group-hover:scale-110 transition-transform"><Unlock /></div>
@@ -795,7 +825,7 @@ export default function App() {
                 </button>
 
                 <button onClick={() => academyLevel >= 4 ? startMetronome() : null} className={`p-8 border-4 rounded-[2rem] text-left relative overflow-hidden transition-all ${academyLevel >= 4 ? 'bg-fuchsia-50 border-fuchsia-200 hover:bg-fuchsia-100 cursor-pointer group' : 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'}`}>
-                   <h3 className={`text-2xl font-black mb-2 ${academyLevel >= 4 ? 'text-fuchsia-800' : 'text-slate-500'}`}>4. Metronomlu Okuma</h3>
+                   <h3 className={`text-2xl font-black mb-2 ${academyLevel >= 4 ? 'text-fuchsia-800' : 'text-slate-500'}`}>4. Metronom Okuma</h3>
                    <p className={`font-bold ${academyLevel >= 4 ? 'text-fuchsia-600' : 'text-slate-400'}`}>Ritmik blok okuma simülatörü.</p>
                    <div className={`absolute right-4 top-1/2 -translate-y-1/2 text-5xl ${academyLevel >= 4 ? 'text-fuchsia-300 group-hover:scale-110' : 'text-slate-300'}`}>{academyLevel >= 4 ? <Unlock /> : <Lock />}</div>
                 </button>
@@ -803,27 +833,45 @@ export default function App() {
           </div>
         )}
 
-        {view === 'academy-warmup' && (
+        {/* --- YÖNERGE EKRANLARI (READY) VE AKTİF EKRANLAR --- */}
+        {view === 'academy-warmup-ready' && (
+           <div className="max-w-2xl mx-auto mt-20 text-center bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-sky-200 relative">
+              <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-sky-600 p-4 rounded-full shadow-xl border-4 border-sky-100"><ArrowLeft /></button>
+              <h2 className="text-4xl font-black text-sky-600 mb-6">1. Aşama: Isınma</h2>
+              <p className="text-2xl font-bold text-sky-800 mb-8">Lütfen cihazın sesini dinle ve yönergeyi anladıktan sonra başla.</p>
+              <button onClick={() => speakInstruction("Hoş geldin! Şimdi göz kaslarımızı güçlendireceğiz. Ekranda sağa ve sola giden kırmızı topu takip etmeni istiyorum. Ama çok önemli bir kuralımız var: Kafanı kesinlikle çevirme! Sadece gözlerinle takip et. Hazırsan başla butonuna bas!")} className="bg-amber-100 text-amber-700 px-6 py-3 rounded-full font-black mb-8 flex items-center justify-center gap-2 mx-auto hover:bg-amber-200 transition-colors animate-pulse"><Volume2 /> Yönergeyi Tekrar Dinle</button>
+              <button onClick={() => { setWarmupTime(30); setView('academy-warmup-active'); }} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-3xl font-black shadow-xl border-b-8 border-sky-700 active:translate-y-2 active:border-b-0 transition-all">HAZIRIM, BAŞLA! 🚀</button>
+           </div>
+        )}
+
+        {view === 'academy-warmup-active' && (
           <div className="max-w-4xl mx-auto mt-20 text-center flex flex-col items-center justify-center min-h-[50vh] relative">
-             <button onClick={() => { setView('academy-menu'); }} className="absolute -top-12 left-0 bg-white text-indigo-600 px-6 py-3 rounded-2xl font-black flex items-center gap-2 shadow-lg border-4 border-indigo-100 hover:bg-indigo-50">
+             <button onClick={() => { setView('academy-menu'); }} className="absolute -top-12 left-0 bg-white text-sky-600 px-6 py-3 rounded-2xl font-black flex items-center gap-2 shadow-lg border-4 border-sky-100 hover:bg-sky-50">
                 <ArrowLeft /> Geri Dön
              </button>
              <h2 className="text-3xl font-black text-white bg-sky-500 px-8 py-3 rounded-full mb-12 shadow-lg">Kafanı çevirme, topu sadece gözünle takip et!</h2>
              <div className="text-5xl font-black text-sky-800 mb-8">{warmupTime}</div>
-             
-             {/* Sarkaç Animasyon Alanı */}
              <div className="w-full h-32 flex items-center justify-center bg-white/50 rounded-full border-8 border-white shadow-inner overflow-hidden relative">
                 <div className="w-16 h-16 bg-rose-500 rounded-full shadow-lg animate-pendulum absolute"></div>
              </div>
           </div>
         )}
 
-        {view === 'academy-schulte' && (
+        {view === 'academy-schulte-ready' && (
+           <div className="max-w-2xl mx-auto mt-20 text-center bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-emerald-200 relative">
+              <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-emerald-600 p-4 rounded-full shadow-xl border-4 border-emerald-100"><ArrowLeft /></button>
+              <h2 className="text-4xl font-black text-emerald-600 mb-6">2. Aşama: Schulte Tablosu</h2>
+              <p className="text-2xl font-bold text-emerald-800 mb-8">Amacımız: Gözleri merkezde tutup çevresel görüş açısını genişletmek.</p>
+              <button onClick={() => speakInstruction("Harika gidiyorsun! Şimdi bir dedektif gibi sayıları bulacağız. Lütfen gözünü tablonun tam ortasından hiç ayırma ve kenarlardaki sayıları birden dokuza kadar sırayla bulup tıkla. Hazırsan başla!")} className="bg-amber-100 text-amber-700 px-6 py-3 rounded-full font-black mb-8 flex items-center justify-center gap-2 mx-auto hover:bg-amber-200 transition-colors animate-pulse"><Volume2 /> Yönergeyi Tekrar Dinle</button>
+              <button onClick={() => setView('academy-schulte-active')} className="w-full bg-emerald-500 text-white py-6 rounded-2xl text-3xl font-black shadow-xl border-b-8 border-emerald-700 active:translate-y-2 active:border-b-0 transition-all">HAZIRIM, BAŞLA! 🚀</button>
+           </div>
+        )}
+
+        {view === 'academy-schulte-active' && (
           <div className="max-w-2xl mx-auto mt-20 text-center flex flex-col items-center justify-center relative bg-white p-10 rounded-[3rem] shadow-2xl border-8 border-emerald-200">
              <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-emerald-600 p-4 rounded-full shadow-xl border-4 border-emerald-100 hover:bg-emerald-50"><ArrowLeft /></button>
              <h2 className="text-3xl font-black text-emerald-600 mb-4">Schulte Tablosu</h2>
              <p className="text-xl font-bold text-emerald-800 mb-8">Gözünü ortadan ayırmadan sırayla 1'den 9'a kadar tıkla. <br/> Sıradaki: <span className="text-4xl text-rose-500">{schulteExpected}</span></p>
-             
              <div className="grid grid-cols-3 gap-4 w-full max-w-sm mx-auto">
                 {schulteGrid.map((num, i) => (
                    <button key={i} onClick={() => handleSchulteClick(num)} 
@@ -835,19 +883,38 @@ export default function App() {
           </div>
         )}
 
-        {view === 'academy-flash' && (
+        {view === 'academy-flash-ready' && (
+           <div className="max-w-2xl mx-auto mt-20 text-center bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-amber-200 relative">
+              <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-amber-600 p-4 rounded-full shadow-xl border-4 border-amber-100"><ArrowLeft /></button>
+              <h2 className="text-4xl font-black text-amber-600 mb-6">3. Aşama: Flaş Kelimeler</h2>
+              <p className="text-2xl font-bold text-amber-800 mb-6">Amacımız: Hecelemeyi bırakıp kelimeleri fotoğraf gibi tek seferde zihne kazımak.</p>
+              
+              <div className="bg-amber-50 p-4 rounded-2xl border-4 border-amber-100 mb-8">
+                 <p className="font-black text-amber-800 mb-4">Kendine uygun hızı seç:</p>
+                 <div className="flex gap-2">
+                    <button onClick={() => setFlashSpeed(2000)} className={`flex-1 py-3 rounded-xl font-black text-lg ${flashSpeed === 2000 ? 'bg-emerald-400 text-white shadow-inner' : 'bg-white text-emerald-600 border-2 border-emerald-200'}`}>🐢 Yavaş</button>
+                    <button onClick={() => setFlashSpeed(1000)} className={`flex-1 py-3 rounded-xl font-black text-lg ${flashSpeed === 1000 ? 'bg-amber-400 text-white shadow-inner' : 'bg-white text-amber-600 border-2 border-amber-200'}`}>🐇 Normal</button>
+                    <button onClick={() => setFlashSpeed(600)} className={`flex-1 py-3 rounded-xl font-black text-lg ${flashSpeed === 600 ? 'bg-rose-400 text-white shadow-inner' : 'bg-white text-rose-600 border-2 border-rose-200'}`}>🐆 Hızlı</button>
+                 </div>
+              </div>
+
+              <button onClick={() => speakInstruction("Şimdi gözlerinle fotoğraf çekme zamanı! Ekranda bir kelime şimşek gibi parlayıp kaybolacak. Onu aklında tut ve aşağıdaki seçeneklerden doğru olanı bul. Gözünü kırpma, hazırsan başla!")} className="bg-amber-100 text-amber-700 px-6 py-3 rounded-full font-black mb-8 flex items-center justify-center gap-2 mx-auto hover:bg-amber-200 transition-colors animate-pulse"><Volume2 /> Yönergeyi Tekrar Dinle</button>
+              <button onClick={() => { setView('academy-flash-active'); triggerFlashWord(); }} className="w-full bg-amber-500 text-white py-6 rounded-2xl text-3xl font-black shadow-xl border-b-8 border-amber-700 active:translate-y-2 active:border-b-0 transition-all">HAZIRIM, BAŞLA! 🚀</button>
+           </div>
+        )}
+
+        {view === 'academy-flash-active' && (
           <div className="max-w-3xl mx-auto mt-20 text-center flex flex-col items-center justify-center relative bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-amber-200 min-h-[400px]">
              <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-amber-600 p-4 rounded-full shadow-xl border-4 border-amber-100 hover:bg-amber-50"><ArrowLeft /></button>
              <h2 className="text-3xl font-black text-amber-600 mb-2">Flaş Kelimeler</h2>
              <p className="text-xl font-bold text-slate-500 mb-8">Ekranda parlayan kelimeyi zihnine kazı!</p>
-             
              {flashMessage && <div className="text-2xl font-black text-emerald-500 mb-8">{flashMessage}</div>}
 
              {isFlashShowing ? (
                 <div className="text-7xl font-black text-slate-800 tracking-tight my-10">{flashWordsData[flashStage].w}</div>
              ) : (
                 !flashMessage && (
-                  <div className="w-full">
+                  <div className="w-full animate-in fade-in zoom-in duration-300">
                      <p className="text-2xl font-black text-amber-800 mb-8">Az önce ne gördün?</p>
                      <div className="grid grid-cols-3 gap-4">
                         {flashWordsData[flashStage].o.map((opt, i) => (
@@ -860,7 +927,17 @@ export default function App() {
           </div>
         )}
 
-        {view === 'academy-metronome' && (
+        {view === 'academy-metronome-ready' && (
+           <div className="max-w-2xl mx-auto mt-20 text-center bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-fuchsia-200 relative">
+              <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-fuchsia-600 p-4 rounded-full shadow-xl border-4 border-fuchsia-100"><ArrowLeft /></button>
+              <h2 className="text-4xl font-black text-fuchsia-600 mb-6">4. Aşama: Metronomlu Okuma</h2>
+              <p className="text-2xl font-bold text-fuchsia-800 mb-8">Amacımız: Ritim sayesinde geriye dönük okuma hatalarını (regresyon) engellemek.</p>
+              <button onClick={() => speakInstruction("İşte büyük görev! Arka planda çalan tik-tak sesinin ritmine uyarak ekrana gelen kelimeleri sesli bir şekilde oku. Ritimden hiç kopma. Hazırsan macerayı başlat!")} className="bg-amber-100 text-amber-700 px-6 py-3 rounded-full font-black mb-8 flex items-center justify-center gap-2 mx-auto hover:bg-amber-200 transition-colors animate-pulse"><Volume2 /> Yönergeyi Tekrar Dinle</button>
+              <button onClick={() => { setView('academy-metronome-active'); setMetronomeIndex(0); }} className="w-full bg-fuchsia-500 text-white py-6 rounded-2xl text-3xl font-black shadow-xl border-b-8 border-fuchsia-700 active:translate-y-2 active:border-b-0 transition-all">HAZIRIM, BAŞLA! 🚀</button>
+           </div>
+        )}
+
+        {view === 'academy-metronome-active' && (
           <div className="max-w-4xl mx-auto mt-20 text-center flex flex-col items-center justify-center relative bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-fuchsia-200 min-h-[500px]">
              <button onClick={() => { setView('academy-menu'); setMetronomeIndex(-1); }} className="absolute -top-6 -left-6 bg-white text-fuchsia-600 p-4 rounded-full shadow-xl border-4 border-fuchsia-100 hover:bg-fuchsia-50"><ArrowLeft /></button>
              
@@ -877,18 +954,18 @@ export default function App() {
              ) : (
                <div className="space-y-6">
                   <h2 className="text-4xl font-black text-emerald-600">Mükemmel Odaklanma! 🎉</h2>
-                  <p className="text-2xl font-bold text-emerald-800">Metronom ritmi geriye dönüşleri engeller.</p>
+                  <p className="text-2xl font-bold text-emerald-800">Metronom ritmi geriye dönüşleri başarıyla engelledi.</p>
                   <button onClick={() => setView('academy-menu')} className="bg-emerald-500 text-white px-8 py-4 rounded-2xl text-2xl font-black shadow-lg hover:scale-105">Akademiye Dön</button>
                </div>
              )}
           </div>
         )}
 
-        {/* --- DİĞER EKRANLAR (HİKAYE OKUMA, SONUÇ VS.) AYNEN KORUNDU --- */}
         {isGeneratingStory && (
           <div className="max-w-md mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl mt-20 text-center">
              <Loader2 className="w-20 h-20 text-sky-500 animate-spin mx-auto mb-6" />
-             <h2 className="text-3xl font-black text-sky-600">Metin Yazılıyor...</h2>
+             <h2 className="text-3xl font-black text-sky-600">Sana Özel Metin Hazırlanıyor...</h2>
+             <p className="text-sky-800 font-bold mt-4">Yapay zeka seviyene göre uyarlıyor 🤖</p>
           </div>
         )}
 
@@ -979,15 +1056,7 @@ export default function App() {
              <h2 className="text-4xl font-black text-sky-600">Tebrikler {readingResult.name.split(' ')[0]}!</h2>
              <div className="bg-indigo-50 p-8 rounded-3xl font-bold text-indigo-900 text-xl relative shadow-inner">
                 "{readingResult.aiEvaluation.geribildirim}"
-                <button onClick={() => {
-                    if ('speechSynthesis' in window) {
-                        window.speechSynthesis.cancel();
-                        const msg = new SpeechSynthesisUtterance(readingResult.aiEvaluation.geribildirim);
-                        msg.lang = 'tr-TR';
-                        msg.rate = 0.9;
-                        window.speechSynthesis.speak(msg);
-                    } else { alert("Tarayıcınız sesli okumayı desteklemiyor."); }
-                }} className="absolute -top-6 -right-6 bg-amber-400 text-amber-900 p-4 rounded-full shadow-xl hover:bg-amber-300 transition-transform active:scale-95 animate-bounce" title="Sesli Dinle">
+                <button onClick={() => speakInstruction(readingResult.aiEvaluation.geribildirim)} className="absolute -top-6 -right-6 bg-amber-400 text-amber-900 p-4 rounded-full shadow-xl hover:bg-amber-300 transition-transform active:scale-95 animate-bounce" title="Sesli Dinle">
                     <Volume2 size={28} />
                 </button>
              </div>
