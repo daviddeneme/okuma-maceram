@@ -1427,348 +1427,265 @@ export default function App() {
               </div>
             )}
 
-            {/* TEACHER PANEL */}
+            {/* TEACHER PANEL */}    
             {view === 'teacher' && (
               <div className="max-w-6xl mx-auto bg-white/95 rounded-[3rem] shadow-2xl border-8 border-emerald-100 mt-12 min-h-[600px] p-8 md:p-12 relative animate-in fade-in duration-300">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-10 no-print gap-4">
                   <h2 className="text-4xl md:text-5xl font-black text-emerald-600 tracking-tight">Sınıf Yönetim Merkezi</h2>
                   <button onClick={() => setView('student-setup')} className="bg-emerald-100 text-emerald-700 px-6 py-3 rounded-full font-black hover:bg-emerald-200 transition-colors border-2 border-emerald-200">Öğrenci Ekranına Dön</button>
                 </div>
+
                 <div className="flex flex-wrap border-b-4 border-emerald-100 mb-10 no-print">
-                  />, l:'Ödev Merkezi'}, {id:'students', i:<Users/>, l:'Öğrenciler'}, {id:'settings', i:<Settings/>, l:'Ayarlar'} ].map(tab => (
-                <button key={tab.id} onClick={() => setTeacherTab(tab.id)} className={`flex-1 flex items-center justify-center gap-2 py-4 font-black capitalize transition-all text-lg ${teacherTab === tab.id ? 'text-emerald-700 border-b-8 border-emerald-500 bg-emerald-50 rounded-t-2xl' : 'text-slate-400 hover:text-emerald-500'}`}>
-                  {tab.i} <span className="hidden md:inline">{tab.l}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* 📊 RADAR SEKMESİ VE SINIF ÖZETİ */}
-            {teacherTab === 'radar' && (
-              <div className="space-y-8 animate-in fade-in duration-300">
-                 <h3 className="text-3xl font-black text-emerald-800 mb-6">Sınıf Gelişim Radarı</h3>
-                 
-                 {/* SINIF GENEL ÖZETİ KARTLARI */}
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                    <div className="bg-sky-50 p-6 rounded-3xl border-4 border-sky-200 text-center shadow-sm">
-                      <div className="text-sky-500 text-4xl mb-2">⚡</div>
-                      <div className="text-sm font-bold text-sky-700 uppercase tracking-wide">Sınıf Ort. Hızı</div>
-                      <div className="text-3xl font-black text-sky-900 mt-1">
-                        {stats.length > 0 ? Math.round(stats.reduce((a,b)=>a+(Number(b.wpm)||0),0)/stats.length) : 0} WPM
-                      </div>
-                    </div>
-                    <div className="bg-fuchsia-50 p-6 rounded-3xl border-4 border-fuchsia-200 text-center shadow-sm">
-                      <div className="text-fuchsia-500 text-4xl mb-2">📚</div>
-                      <div className="text-sm font-bold text-fuchsia-700 uppercase tracking-wide">Toplam Okuma</div>
-                      <div className="text-3xl font-black text-fuchsia-900 mt-1">{stats.length} Kere</div>
-                    </div>
-                    <div className="bg-amber-50 p-6 rounded-3xl border-4 border-amber-200 text-center shadow-sm">
-                      <div className="text-amber-500 text-4xl mb-2">🎯</div>
-                      <div className="text-sm font-bold text-amber-700 uppercase tracking-wide">Genel Doğruluk</div>
-                      <div className="text-3xl font-black text-amber-900 mt-1">
-                         {stats.length > 0 ? ((stats.reduce((a,b)=>a+(Number(b.compScore)||0),0) / Math.max(1, stats.reduce((a,b)=>a+(Number(b.maxScore)||2),0))) * 100).toFixed(0) : 0}%
-                      </div>
-                    </div>
-                 </div>
-
-                 <div className="grid md:grid-cols-2 gap-8">
-                    <div className="bg-emerald-50 p-8 rounded-3xl border-4 border-emerald-200 shadow-sm relative overflow-hidden">
-                       <TrendingUp size={100} className="absolute -right-8 -bottom-8 text-emerald-200 opacity-50" />
-                       <h4 className="text-2xl font-black text-emerald-600 mb-6 flex items-center gap-2 relative z-10"><TrendingUp/> Hızlanan Öğrenciler</h4>
-                       <ul className="space-y-4 relative z-10">
-                          {students.map(s => {
-                             const studentStats = stats.filter(r => r.name === s.name).reverse();
-                             if(studentStats.length >= 2 && Number(studentStats[0].wpm) > Number(studentStats[1].wpm)) {
-                               return <li key={s.id} className="bg-white p-4 rounded-xl shadow-sm border-l-8 border-emerald-500 font-bold text-emerald-900 flex justify-between items-center text-lg"><span>{s.name}</span> <span className="text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg">+{Number(studentStats[0].wpm) - Number(studentStats[1].wpm)} WPM</span></li>;
-                             }
-                             return null;
-                          })}
-                       </ul>
-                    </div>
-                    <div className="bg-rose-50 p-8 rounded-3xl border-4 border-rose-200 shadow-sm relative overflow-hidden">
-                       <Activity size={100} className="absolute -right-8 -bottom-8 text-rose-200 opacity-50" />
-                       <h4 className="text-2xl font-black text-rose-600 mb-6 flex items-center gap-2 relative z-10"><Activity/> Desteğe İhtiyacı Olanlar</h4>
-                       <ul className="space-y-4 relative z-10">
-                          {students.map(s => {
-                             const studentStats = stats.filter(r => r.name === s.name).reverse();
-                             if(studentStats.length >= 2 && Number(studentStats[0].wpm) < Number(studentStats[1].wpm)) {
-                               return <li key={s.id} className="bg-white p-4 rounded-xl shadow-sm border-l-8 border-rose-500 font-bold text-rose-900 flex justify-between items-center text-lg"><span>{s.name}</span> <span className="text-rose-600 bg-rose-50 px-3 py-1 rounded-lg">{Number(studentStats[0].wpm) - Number(studentStats[1].wpm)} WPM</span></li>;
-                             }
-                             return null;
-                          })}
-                       </ul>
-                    </div>
-                 </div>
-              </div>
-            )}
-
-            {/* RAPOR & ARŞİV SEKMESİ */}
-            {teacherTab === 'stats' && (
-              <div id="print-section" className="animate-in fade-in duration-300">
-                <div className="mb-8 flex flex-col md:flex-row items-center gap-4 bg-emerald-50 p-6 rounded-3xl border-4 border-emerald-100 no-print">
-                  <label className="font-black text-emerald-800 text-xl whitespace-nowrap">Öğrenci Seç:</label>
-                  <select value={selectedStudentForProgress || ''} onChange={(e) => setSelectedStudentForProgress(e.target.value || null)} className="flex-1 p-4 border-4 border-emerald-200 rounded-2xl font-bold text-emerald-900 bg-white outline-none text-lg">
-                    <option value="">Tüm Sınıf (Genel Liste)</option>
-                    {students.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                  </select>
-                  {selectedStudentForProgress && (
-                     <button onClick={() => window.print()} className="w-full md:w-auto bg-sky-500 hover:bg-sky-400 text-white p-4 rounded-2xl shadow-md font-black flex items-center justify-center gap-2 text-lg"><Printer size={24}/> Veli PDF Çıktısı</button>
-                  )}
+                  {[{ id: 'radar', i: <Activity />, l: 'Sınıf Radarı' }, { id: 'stats', i: <FileText />, l: 'Rapor & Arşiv' }, { id: 'homework', i: <BookOpen />, l: 'Ödev Merkezi' }, { id: 'students', i: <Users />, l: 'Öğrenciler' }, { id: 'settings', i: <Settings />, l: 'Ayarlar' }].map(tab => (
+                    <button key={tab.id} onClick={() => setTeacherTab(tab.id)} className={`flex-1 flex items-center justify-center gap-2 py-4 font-black capitalize transition-all text-lg ${teacherTab === tab.id ? 'text-emerald-700 border-b-8 border-emerald-500 bg-emerald-50 rounded-t-2xl' : 'text-slate-400 hover:text-emerald-500'}`}>
+                      {tab.i} <span className="hidden md:inline">{tab.l}</span>
+                    </button>
+                  ))}
                 </div>
 
-                {selectedStudentForProgress && (
-                  <div className="bg-white p-8 rounded-3xl border-4 border-emerald-100 mb-8 shadow-sm overflow-x-auto">
-                    <h4 className="font-black text-emerald-800 mb-8 text-center text-2xl">{selectedStudentForProgress} - Okuma Hızı Gelişim Grafiği (WPM)</h4>
-                    {(() => {
-                      const studentStats = [...stats].filter(r => r.name === selectedStudentForProgress).reverse();
-                      if (studentStats.length === 0) return <div className="text-center text-emerald-600 font-bold text-lg">Grafik oluşturulacak veri yok.</div>;
-                      
-                      const allWpm = studentStats.map(s => Number(s.wpm) || 0);
-                      const maxWpm = Math.max(...allWpm, 50) + 10; 
-                      const chartHeight = 200;
-                      const pointWidth = 80; 
-                      const chartWidth = Math.max(studentStats.length * pointWidth, 600);
-                      const points = studentStats.map((row, idx) => {
-                         const x = idx * pointWidth + 40; 
-                         const y = chartHeight - ((Number(row.wpm) || 0) / maxWpm) * chartHeight;
-                         return `${x},${y}`;
-                      }).join(" ");
-
-                      return (
-                         <div className="w-full overflow-x-auto pb-6">
-                           <svg width={chartWidth} height={chartHeight + 40} className="mx-auto block">
-                             <line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#e2e8f0" strokeWidth="2" />
-                             <polyline points={points} fill="none" stroke="#10b981" strokeWidth="4" strokeLinejoin="round" />
-                             {studentStats.map((row, idx) => {
-                                const x = idx * pointWidth + 40;
-                                const y = chartHeight - ((Number(row.wpm) || 0) / maxWpm) * chartHeight;
-                                return (
-                                  <g key={idx}>
-                                    <circle cx={x} cy={y} r="6" fill="#10b981" stroke="#fff" strokeWidth="2" />
-                                    <text x={x} y={y - 15} textAnchor="middle" className="text-[14px] font-black fill-emerald-700">{row.wpm}</text>
-                                    <text x={x} y={chartHeight + 25} textAnchor="middle" className="text-[10px] font-bold fill-slate-400">{row.date?.split(' - ')[0]}</text>
-                                  </g>
-                                );
-                             })}
-                           </svg>
-                         </div>
-                       );
-                    })()}
+                {/* RADAR */}
+                {teacherTab === 'radar' && (
+                  <div className="space-y-8 animate-in fade-in duration-300">
+                    <h3 className="text-3xl font-black text-emerald-800 mb-6">Sınıf Gelişim Radarı</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                      <div className="bg-sky-50 p-6 rounded-3xl border-4 border-sky-200 text-center shadow-sm">
+                        <div className="text-sky-500 text-4xl mb-2">⚡</div>
+                        <div className="text-sm font-bold text-sky-700 uppercase tracking-wide">Sınıf Ort. Hızı</div>
+                        <div className="text-3xl font-black text-sky-900 mt-1">{stats.length > 0 ? Math.round(stats.reduce((a, b) => a + (Number(b.wpm) || 0), 0) / stats.length) : 0} WPM</div>
+                      </div>
+                      <div className="bg-fuchsia-50 p-6 rounded-3xl border-4 border-fuchsia-200 text-center shadow-sm">
+                        <div className="text-fuchsia-500 text-4xl mb-2">📚</div>
+                        <div className="text-sm font-bold text-fuchsia-700 uppercase tracking-wide">Toplam Okuma</div>
+                        <div className="text-3xl font-black text-fuchsia-900 mt-1">{stats.length} Kere</div>
+                      </div>
+                      <div className="bg-amber-50 p-6 rounded-3xl border-4 border-amber-200 text-center shadow-sm">
+                        <div className="text-amber-500 text-4xl mb-2">🎯</div>
+                        <div className="text-sm font-bold text-amber-700 uppercase tracking-wide">Genel Doğruluk</div>
+                        <div className="text-3xl font-black text-amber-900 mt-1">{stats.length > 0 ? ((stats.reduce((a, b) => a + (Number(b.compScore) || 0), 0) / Math.max(1, stats.reduce((a, b) => a + (Number(b.maxScore) || 2), 0))) * 100).toFixed(0) : 0}%</div>
+                      </div>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-8">
+                      <div className="bg-emerald-50 p-8 rounded-3xl border-4 border-emerald-200 shadow-sm relative overflow-hidden">
+                        <TrendingUp size={100} className="absolute -right-8 -bottom-8 text-emerald-200 opacity-50" />
+                        <h4 className="text-2xl font-black text-emerald-600 mb-6 flex items-center gap-2 relative z-10"><TrendingUp /> Hızlanan Öğrenciler</h4>
+                        <ul className="space-y-4 relative z-10">
+                          {students.map(s => {
+                            const ss = stats.filter(r => r.name === s.name).reverse();
+                            if (ss.length >= 2 && Number(ss[0].wpm) > Number(ss[1].wpm)) {
+                              return <li key={s.id} className="bg-white p-4 rounded-xl shadow-sm border-l-8 border-emerald-500 font-bold text-emerald-900 flex justify-between items-center text-lg"><span>{s.name}</span><span className="text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg">+{Number(ss[0].wpm) - Number(ss[1].wpm)} WPM</span></li>;
+                            } return null;
+                          })}
+                        </ul>
+                      </div>
+                      <div className="bg-rose-50 p-8 rounded-3xl border-4 border-rose-200 shadow-sm relative overflow-hidden">
+                        <Activity size={100} className="absolute -right-8 -bottom-8 text-rose-200 opacity-50" />
+                        <h4 className="text-2xl font-black text-rose-600 mb-6 flex items-center gap-2 relative z-10"><Activity /> Desteğe İhtiyacı Olanlar</h4>
+                        <ul className="space-y-4 relative z-10">
+                          {students.map(s => {
+                            const ss = stats.filter(r => r.name === s.name).reverse();
+                            if (ss.length >= 2 && Number(ss[0].wpm) < Number(ss[1].wpm)) {
+                              return <li key={s.id} className="bg-white p-4 rounded-xl shadow-sm border-l-8 border-rose-500 font-bold text-rose-900 flex justify-between items-center text-lg"><span>{s.name}</span><span className="text-rose-600 bg-rose-50 px-3 py-1 rounded-lg">{Number(ss[0].wpm) - Number(ss[1].wpm)} WPM</span></li>;
+                            } return null;
+                          })}
+                        </ul>
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {selectedStudentForProgress ? (
-                  <div className="space-y-4">
-                    <h3 className="text-2xl font-black text-emerald-600 mb-6 flex items-center gap-2"><Mic/> Ses Gelişim Arşivi</h3>
+                {/* STATS */}
+                {teacherTab === 'stats' && (
+                  <div id="print-section" className="animate-in fade-in duration-300">
+                    <div className="mb-8 flex flex-col md:flex-row items-center gap-4 bg-emerald-50 p-6 rounded-3xl border-4 border-emerald-100 no-print">
+                      <label className="font-black text-emerald-800 text-xl whitespace-nowrap">Öğrenci Seç:</label>
+                      <select value={selectedStudentForProgress || ''} onChange={(e) => setSelectedStudentForProgress(e.target.value || null)} className="flex-1 p-4 border-4 border-emerald-200 rounded-2xl font-bold text-emerald-900 bg-white outline-none text-lg">
+                        <option value="">Tüm Sınıf (Genel Liste)</option>
+                        {students.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                      </select>
+                      {selectedStudentForProgress && (
+                        <button onClick={() => window.print()} className="w-full md:w-auto bg-sky-500 hover:bg-sky-400 text-white p-4 rounded-2xl shadow-md font-black flex items-center justify-center gap-2 text-lg"><Printer size={24} /> Veli PDF Çıktısı</button>
+                      )}
+                    </div>
+                    {selectedStudentForProgress && (
+                      <div className="bg-white p-8 rounded-3xl border-4 border-emerald-100 mb-8 shadow-sm overflow-x-auto">
+                        <h4 className="font-black text-emerald-800 mb-8 text-center text-2xl">{selectedStudentForProgress} - Okuma Hızı Gelişim Grafiği (WPM)</h4>
+                        {(() => {
+                          const studentStats = [...stats].filter(r => r.name === selectedStudentForProgress).reverse();
+                          if (studentStats.length === 0) return <div className="text-center text-emerald-600 font-bold text-lg">Grafik oluşturulacak veri yok.</div>;
+                          const allWpm = studentStats.map(s => Number(s.wpm) || 0);
+                          const maxWpm = Math.max(...allWpm, 50) + 10;
+                          const chartHeight = 200; const pointWidth = 80;
+                          const chartWidth = Math.max(studentStats.length * pointWidth, 600);
+                          const points = studentStats.map((row, idx) => { const x = idx * pointWidth + 40; const y = chartHeight - ((Number(row.wpm) || 0) / maxWpm) * chartHeight; return `${x},${y}`; }).join(" ");
+                          return (
+                            <div className="w-full overflow-x-auto pb-6">
+                              <svg width={chartWidth} height={chartHeight + 40} className="mx-auto block">
+                                <line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#e2e8f0" strokeWidth="2" />
+                                <polyline points={points} fill="none" stroke="#10b981" strokeWidth="4" strokeLinejoin="round" />
+                                {studentStats.map((row, idx) => { const x = idx * pointWidth + 40; const y = chartHeight - ((Number(row.wpm) || 0) / maxWpm) * chartHeight; return (<g key={idx}><circle cx={x} cy={y} r="6" fill="#10b981" stroke="#fff" strokeWidth="2" /><text x={x} y={y - 15} textAnchor="middle" className="text-[14px] font-black fill-emerald-700">{row.wpm}</text><text x={x} y={chartHeight + 25} textAnchor="middle" className="text-[10px] font-bold fill-slate-400">{row.date?.split(' - ')[0]}</text></g>); })}
+                              </svg>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
                     <div className="overflow-x-auto bg-white rounded-3xl border-4 border-emerald-50 shadow-sm p-2">
                       <table className="w-full text-left">
                         <thead>
-                           <tr className="border-b-4 border-emerald-100 bg-emerald-50/50">
-                             <th className="p-5 font-black text-emerald-800">Tarih - Saat</th>
-                             <th className="p-5 font-black text-emerald-800">Tür</th>
-                             <th className="p-5 font-black text-emerald-800 text-center">Hız (WPM)</th>
-                             <th className="p-5 font-black text-emerald-800 text-center">Skor</th>
-                             <th className="p-5 font-black text-emerald-800 text-center no-print">Ses Kaydı</th>
-                             <th className="p-5 font-black text-emerald-800 text-center no-print">İşlem</th>
-                           </tr>
+                          <tr className="border-b-4 border-emerald-100 bg-emerald-50/50">
+                            {!selectedStudentForProgress && <th className="p-5 font-black text-emerald-800">İsim</th>}
+                            <th className="p-5 font-black text-emerald-800">Tarih - Saat</th>
+                            <th className="p-5 font-black text-emerald-800">Tür</th>
+                            <th className="p-5 font-black text-emerald-800 text-center">Hız (WPM)</th>
+                            <th className="p-5 font-black text-emerald-800 text-center">Skor</th>
+                            <th className="p-5 font-black text-emerald-800 text-center no-print">Ses Kaydı</th>
+                            <th className="p-5 font-black text-emerald-800 text-center no-print">İşlem</th>
+                          </tr>
                         </thead>
                         <tbody>
-                          {stats.filter(r => r.name === selectedStudentForProgress).map(row => (
+                          {(selectedStudentForProgress ? stats.filter(r => r.name === selectedStudentForProgress) : stats).map(row => (
                             <tr key={row.id} className="border-b border-emerald-50 font-bold text-slate-700 hover:bg-emerald-50/30 transition-colors">
+                              {!selectedStudentForProgress && <td className="p-5 text-emerald-900 text-lg">{row.name}</td>}
                               <td className="p-5 text-sm">{row.date || 'Belirtilmedi'}</td>
                               <td className="p-5">{row.level === 'Ödev' ? <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-lg text-sm border-2 border-amber-200">Ödev</span> : <span className="bg-sky-100 text-sky-700 px-3 py-1 rounded-lg text-sm border-2 border-sky-200">{row.interest}</span>}</td>
                               <td className="p-5 text-center text-xl text-amber-600 font-black">{row.wpm}</td>
                               <td className="p-5 text-center text-xl text-emerald-600 font-black">{row.compScore}/{row.maxScore || 2}</td>
-                              <td className="p-5 text-center no-print">
-                                {row.audioUrl ? <audio src={row.audioUrl} controls className="h-10 w-full max-w-[200px] mx-auto outline-none" /> : <span className="text-slate-400 text-sm">Yok</span>}
-                              </td>
-                              <td className="p-5 text-center no-print">
-                                <button onClick={() => handleDeleteStat(row.id)} className="bg-rose-100 text-rose-600 p-3 rounded-xl hover:bg-rose-500 hover:text-white transition-colors"><Trash2 size={20} /></button>
-                              </td>
+                              <td className="p-5 text-center no-print">{row.audioUrl ? <audio src={row.audioUrl} controls className="h-10 w-full max-w-[200px] mx-auto outline-none" /> : <span className="text-slate-400 text-sm">Yok</span>}</td>
+                              <td className="p-5 text-center no-print"><button onClick={() => handleDeleteStat(row.id)} className="bg-rose-100 text-rose-600 p-3 rounded-xl hover:bg-rose-500 hover:text-white transition-colors"><Trash2 size={20} /></button></td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
                   </div>
-                ) : (
-                  <div className="overflow-x-auto bg-white rounded-3xl border-4 border-emerald-50 shadow-sm p-2">
-                     <table className="w-full text-left">
-                       <thead>
-                         <tr className="border-b-4 border-emerald-100 bg-emerald-50/50">
-                           <th className="p-5 font-black text-emerald-800">İsim</th>
-                           <th className="p-5 font-black text-emerald-800">Tarih - Saat</th>
-                           <th className="p-5 font-black text-emerald-800">Tür</th>
-                           <th className="p-5 font-black text-emerald-800 text-center">Hız (WPM)</th>
-                           <th className="p-5 font-black text-emerald-800 text-center">Skor</th>
-                           <th className="p-5 font-black text-emerald-800 text-center no-print">Ses Kaydı</th>
-                           <th className="p-5 font-black text-emerald-800 text-center no-print">İşlem</th>
-                         </tr>
-                       </thead>
-                       <tbody>
-                         {stats.map(row => (
-                           <tr key={row.id} className="border-b border-emerald-50 font-bold text-slate-700 hover:bg-emerald-50/30 transition-colors">
-                             <td className="p-5 text-emerald-900 text-lg">{row.name}</td>
-                             <td className="p-5 text-sm">{row.date || 'Belirtilmedi'}</td>
-                             <td className="p-5">{row.level === 'Ödev' ? <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-lg text-sm border-2 border-amber-200">Ödev</span> : <span className="bg-sky-100 text-sky-700 px-3 py-1 rounded-lg text-sm border-2 border-sky-200">{row.interest}</span>}</td>
-                             <td className="p-5 text-center text-xl text-amber-600 font-black">{row.wpm}</td>
-                             <td className="p-5 text-center text-xl text-emerald-600 font-black">{row.compScore}/{row.maxScore || 2}</td>
-                             <td className="p-5 text-center no-print">
-                               {row.audioUrl ? <audio src={row.audioUrl} controls className="h-10 w-full max-w-[200px] mx-auto outline-none" /> : <span className="text-slate-400 text-sm">Yok</span>}
-                             </td>
-                             <td className="p-5 text-center no-print">
-                               <button onClick={() => handleDeleteStat(row.id)} className="bg-rose-100 text-rose-600 p-3 rounded-xl hover:bg-rose-500 hover:text-white transition-colors"><Trash2 size={20} /></button>
-                             </td>
-                           </tr>
-                         ))}
-                       </tbody>
-                     </table>
+                )}
+
+                {/* HOMEWORK */}
+                {teacherTab === 'homework' && (
+                  <div className="space-y-8 animate-in fade-in duration-300">
+                    {activeHomework && (
+                      <div className="bg-amber-50 p-8 rounded-3xl border-4 border-amber-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div>
+                          <h3 className="text-2xl font-black text-amber-800">Şu An Yayında Olan Aktif Ödev Var!</h3>
+                          <p className="font-bold text-amber-600 mt-2 text-lg">Bitiş Süresi: {activeHomework.deadline ? new Date(activeHomework.deadline).toLocaleString('tr-TR') : 'Süresiz'}</p>
+                        </div>
+                        <button onClick={handleRemoveHomework} className="w-full md:w-auto bg-rose-500 hover:bg-rose-600 text-white px-8 py-4 rounded-2xl font-black shadow-md flex items-center justify-center gap-2 text-lg transition-colors"><Trash2 size={24} /> Aktif Ödevi Kaldır</button>
+                      </div>
+                    )}
+                    <div className="bg-fuchsia-50 p-8 rounded-3xl border-4 border-fuchsia-100 flex flex-col md:flex-row gap-4 items-center shadow-sm">
+                      <h3 className="w-full text-2xl font-black text-fuchsia-800 mb-2 flex items-center gap-3"><Sparkles size={28} /> YZ ile Ödev Üret</h3>
+                      <input type="text" placeholder="Ödev Konusu" value={hwTopic} onChange={e => setHwTopic(e.target.value)} className="w-full md:flex-1 p-4 border-4 border-fuchsia-200 rounded-2xl font-bold outline-none text-lg text-fuchsia-900" />
+                      <select value={hwLevel} onChange={e => setHwLevel(e.target.value)} className="w-full md:w-auto p-4 border-4 border-fuchsia-200 rounded-2xl font-bold bg-white text-fuchsia-900 text-lg outline-none cursor-pointer">
+                        <option value="1">Kolay</option><option value="2">Orta</option><option value="3">Zor</option>
+                      </select>
+                      <button onClick={handleGenerateHomeworkAI} disabled={isGeneratingHw} className="w-full md:w-auto bg-fuchsia-500 hover:bg-fuchsia-400 text-white font-black px-8 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all text-lg shadow-[0_4px_0_rgb(162,28,175)] active:translate-y-1 active:shadow-none">
+                        {isGeneratingHw ? <Loader2 className="animate-spin" size={24} /> : <Sparkles size={24} />} ÜRET
+                      </button>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-8">
+                      <div>
+                        <label className="block text-xl font-black text-emerald-800 mb-3">Okuma Metni:</label>
+                        <textarea value={hwText} onChange={e => setHwText(e.target.value)} className="w-full p-6 border-4 border-emerald-200 rounded-3xl h-64 font-bold text-lg outline-none text-slate-700 leading-relaxed shadow-inner" placeholder="Metni buraya yazın veya yapay zekaya ürettirin..." />
+                      </div>
+                      <div>
+                        <label className="block text-xl font-black text-amber-800 mb-3 flex items-center gap-2"><Calendar /> Teslim Süresi:</label>
+                        <input type="datetime-local" value={hwDeadline} onChange={e => setHwDeadline(e.target.value)} className="w-full p-6 border-4 border-amber-200 rounded-3xl font-bold bg-amber-50 text-amber-900 outline-none text-lg shadow-inner" />
+                        <p className="text-md font-bold text-slate-500 mt-4 px-2 italic">* Seçilen tarih geldiğinde ödev otomatik silinir.</p>
+                      </div>
+                    </div>
+                    <div className="space-y-6 bg-slate-50 p-8 rounded-[3rem] border-4 border-slate-100">
+                      <h3 className="text-2xl font-black text-emerald-800 mb-4">Sorular:</h3>
+                      {hwQuestions.map((q, qIndex) => (
+                        <div key={qIndex} className="bg-white p-8 rounded-3xl border-4 border-emerald-100 space-y-4 relative shadow-sm">
+                          {hwQuestions.length > 1 && (<button onClick={() => setHwQuestions(hwQuestions.filter((_, i) => i !== qIndex))} className="absolute top-6 right-6 text-rose-500 bg-rose-50 p-3 rounded-xl hover:bg-rose-500 hover:text-white transition-colors"><Trash2 size={20} /></button>)}
+                          <label className="font-black text-emerald-600 text-lg">Soru {qIndex + 1}:</label>
+                          <input type="text" value={q.q} onChange={e => { const newQs = [...hwQuestions]; newQs[qIndex].q = e.target.value; setHwQuestions(newQs); }} className="w-full p-4 border-2 border-slate-200 rounded-2xl font-bold text-lg outline-none focus:border-emerald-400" placeholder="Soru cümlesi..." />
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                            {[0, 1, 2].map(optIndex => (<input key={optIndex} type="text" value={q.options[optIndex]} onChange={e => { const newQs = [...hwQuestions]; newQs[qIndex].options[optIndex] = e.target.value; setHwQuestions(newQs); }} className="p-4 border-2 border-slate-200 rounded-2xl font-bold text-lg outline-none focus:border-emerald-400" placeholder={`${['A', 'B', 'C'][optIndex]} Şıkkı`} />))}
+                          </div>
+                          <div className="bg-emerald-50 p-4 rounded-2xl border-2 border-emerald-100 flex items-center gap-4 mt-4">
+                            <label className="font-black text-emerald-800 text-lg whitespace-nowrap">Doğru Cevap:</label>
+                            <select value={q.correct} onChange={e => { const newQs = [...hwQuestions]; newQs[qIndex].correct = Number(e.target.value); setHwQuestions(newQs); }} className="w-full md:w-auto p-3 bg-white border-2 border-emerald-200 rounded-xl font-black text-lg text-emerald-700 outline-none cursor-pointer">
+                              <option value={0}>A Şıkkı</option><option value={1}>B Şıkkı</option><option value={2}>C Şıkkı</option>
+                            </select>
+                          </div>
+                        </div>
+                      ))}
+                      <button onClick={() => setHwQuestions([...hwQuestions, { q: '', options: ['', '', ''], correct: 0 }])} className="w-full bg-emerald-100 text-emerald-700 py-6 rounded-3xl font-black text-xl border-4 border-emerald-200 border-dashed flex items-center justify-center gap-3 hover:bg-emerald-200 transition-colors"><Plus size={28} /> YENİ SORU EKLE</button>
+                    </div>
+                    <button onClick={handlePublishHomework} className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-6 rounded-full font-black text-3xl shadow-[0_8px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none transition-all mt-8 flex items-center justify-center gap-4"><Send size={32} /> SINIF PANOSUNA GÖNDER 🚀</button>
+                  </div>
+                )}
+
+                {/* STUDENTS */}
+                {teacherTab === 'students' && (
+                  <div className="animate-in fade-in duration-300">
+                    <div className="flex flex-col md:flex-row gap-4 mb-10 bg-emerald-50 p-6 md:p-8 rounded-3xl border-4 border-emerald-200 shadow-sm">
+                      <input type="text" placeholder="Öğrenci Adı Soyadı" value={newStudentName} onChange={e => setNewStudentName(e.target.value)} className="flex-1 p-5 border-4 border-white rounded-2xl font-black text-xl outline-none shadow-inner" />
+                      <input type="text" placeholder="Şifre" value={newStudentPassword} onChange={e => setNewStudentPassword(e.target.value)} className="w-full md:w-40 p-5 border-4 border-white rounded-2xl font-black text-center text-xl outline-none shadow-inner" />
+                      <button onClick={handleAddStudent} className="bg-emerald-500 text-white font-black px-10 py-4 rounded-2xl shadow-[0_4px_0_rgb(4,120,87)] active:translate-y-1 active:shadow-none transition-all text-xl">EKLE</button>
+                    </div>
+                    {students.length === 0 && <button onClick={handleLoadDefaultClass} className="bg-amber-100 text-amber-800 px-8 py-4 rounded-full font-black text-lg border-4 border-amber-200 mb-8 mx-auto block hover:bg-amber-200 transition-colors shadow-sm">1/A Hazır Listesini Yükle</button>}
+                    <div className="grid grid-cols-1 gap-4">
+                      {students.map(s => (
+                        <div key={s.id} className="flex flex-col md:flex-row justify-between items-center p-6 bg-white rounded-3xl border-4 border-emerald-100 shadow-sm gap-6 hover:border-emerald-300 transition-colors">
+                          <div className="flex-1 font-black text-emerald-900 text-2xl flex items-center gap-4">
+                            {s.name}
+                            {s.teacherStars > 0 && <span className="bg-amber-100 text-amber-600 text-sm px-3 py-1 rounded-full flex items-center gap-1 border-2 border-amber-200 shadow-sm">🌟 x{s.teacherStars}</span>}
+                          </div>
+                          <div className="flex items-center gap-3 flex-wrap justify-end">
+                            <button onClick={() => handleGiveTeacherStar(s.id, s.teacherStars)} className="bg-amber-400 text-white p-4 rounded-2xl shadow-[0_4px_0_rgb(180,83,9)] active:translate-y-1 active:shadow-none hover:bg-amber-500 transition-all border-2 border-amber-500" title="Motivasyon Yıldızı Gönder"><Gift size={24} /></button>
+                            <div className="bg-indigo-50 border-4 border-indigo-100 rounded-2xl flex items-center p-2 font-black text-indigo-800">
+                              <span className="px-3 text-sm">Akademi Lvl:</span>
+                              <select value={s.academyLevel || 1} onChange={(e) => updateAcademyLevel(Number(e.target.value), s.id)} className="bg-white border-2 border-indigo-200 rounded-xl p-2 outline-none cursor-pointer">
+                                <option value={1}>1. Isınma</option><option value={2}>2. Schulte</option><option value={3}>3. Flaş</option><option value={4}>4. Metronom</option>
+                              </select>
+                            </div>
+                            {editingPasswords[s.id] !== undefined ? (
+                              <div className="flex items-center gap-2 bg-emerald-50 p-2 rounded-2xl border-4 border-emerald-100">
+                                <input type="text" value={editingPasswords[s.id]} onChange={(e) => setEditingPasswords({ ...editingPasswords, [s.id]: e.target.value })} className="w-24 p-3 border-2 border-emerald-300 rounded-xl text-center font-black tracking-widest outline-none bg-white" maxLength={4} />
+                                <button onClick={() => handleUpdatePassword(s.id, editingPasswords[s.id])} className="bg-emerald-500 text-white p-3 rounded-xl font-bold shadow-sm"><Check size={20} /></button>
+                                <button onClick={() => { const newEd = { ...editingPasswords }; delete newEd[s.id]; setEditingPasswords(newEd); }} className="bg-slate-200 text-slate-600 p-3 rounded-xl font-bold shadow-sm"><X size={20} /></button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border-4 border-slate-100">
+                                <span className="bg-white px-4 py-3 rounded-xl border-2 border-slate-200 text-slate-700 tracking-widest font-black">{s.password}</span>
+                                <button onClick={() => setEditingPasswords({ ...editingPasswords, [s.id]: s.password })} className="bg-sky-500 text-white px-4 py-3 rounded-xl shadow-[0_4px_0_rgb(3,105,161)] active:translate-y-1 active:shadow-none font-black text-sm">Şifre</button>
+                              </div>
+                            )}
+                            <button onClick={() => handleDeleteStudent(s.id, s.name)} className="bg-rose-100 text-rose-600 p-4 rounded-2xl hover:bg-rose-500 hover:text-white transition-colors border-2 border-rose-200 ml-2" title="Öğrenciyi Sil"><Trash2 size={24} /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* SETTINGS */}
+                {teacherTab === 'settings' && (
+                  <div className="flex flex-col max-w-lg mx-auto gap-6 mt-12 bg-emerald-50 p-10 rounded-[3rem] border-4 border-emerald-100 animate-in fade-in duration-300 shadow-sm">
+                    <div className="text-center mb-4">
+                      <div className="w-20 h-20 bg-white rounded-full mx-auto flex items-center justify-center text-emerald-500 shadow-sm mb-4 border-4 border-emerald-200"><Lock size={32} /></div>
+                      <h3 className="text-2xl font-black text-emerald-800">Yönetici Şifresi</h3>
+                      <p className="text-emerald-600 font-bold mt-2">Öğretmen paneline giriş şifrenizi güncelleyin.</p>
+                    </div>
+                    <input type="text" placeholder="Yeni 4 Haneli Şifre" value={newTeacherPasswordInput} onChange={e => setNewTeacherPasswordInput(e.target.value)} className="p-5 border-4 border-white rounded-2xl font-black text-center tracking-[1em] text-2xl outline-none focus:border-emerald-300" maxLength={4} />
+                    <button onClick={handleUpdateTeacherPassword} className="bg-emerald-500 text-white font-black py-5 rounded-2xl shadow-[0_6px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none transition-all text-xl mt-2">ŞİFREYİ GÜNCELLE</button>
+                  </div>
+                )}
+
+                {teacherMsg && (
+                  <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-8 py-4 rounded-full font-black text-lg shadow-2xl animate-bounce z-50 flex items-center gap-3">
+                    <Check className="text-emerald-400" /> {teacherMsg}
                   </div>
                 )}
               </div>
             )}
 
-            {/* ÖDEV MERKEZİ */}
-            {teacherTab === 'homework' && (
-              <div className="space-y-8 animate-in fade-in duration-300">
-                
-                {activeHomework && (
-                   <div className="bg-amber-50 p-8 rounded-3xl border-4 border-amber-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-                      <div>
-                         <h3 className="text-2xl font-black text-amber-800">Şu An Yayında Olan Aktif Ödev Var!</h3>
-                         <p className="font-bold text-amber-600 mt-2 text-lg">Bitiş Süresi: {activeHomework.deadline ? new Date(activeHomework.deadline).toLocaleString('tr-TR') : 'Süresiz'}</p>
-                      </div>
-                      <button onClick={handleRemoveHomework} className="w-full md:w-auto bg-rose-500 hover:bg-rose-600 text-white px-8 py-4 rounded-2xl font-black shadow-md flex items-center justify-center gap-2 text-lg transition-colors"><Trash2 size={24}/> Aktif Ödevi Kaldır</button>
-                   </div>
-                )}
-
-                <div className="bg-fuchsia-50 p-8 rounded-3xl border-4 border-fuchsia-100 flex flex-col md:flex-row gap-4 items-center shadow-sm">
-                   <h3 className="w-full text-2xl font-black text-fuchsia-800 mb-2 flex items-center gap-3"><Sparkles size={28}/> YZ ile Ödev Üret</h3>
-                   <input type="text" placeholder="Ödev Konusu (Örn: Uzaylı Dostlar)" value={hwTopic} onChange={e=>setHwTopic(e.target.value)} className="w-full md:flex-1 p-4 border-4 border-fuchsia-200 rounded-2xl font-bold outline-none text-lg text-fuchsia-900" />
-                   <select value={hwLevel} onChange={e=>setHwLevel(e.target.value)} className="w-full md:w-auto p-4 border-4 border-fuchsia-200 rounded-2xl font-bold bg-white text-fuchsia-900 text-lg outline-none cursor-pointer">
-                     <option value="1">Kolay</option> <option value="2">Orta</option> <option value="3">Zor</option>
-                   </select>
-                   <button onClick={handleGenerateHomeworkAI} disabled={isGeneratingHw} className="w-full md:w-auto bg-fuchsia-500 hover:bg-fuchsia-400 text-white font-black px-8 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all text-lg shadow-[0_4px_0_rgb(162,28,175)] active:translate-y-1 active:shadow-none">
-                     {isGeneratingHw ? <Loader2 className="animate-spin" size={24}/> : <Sparkles size={24}/>} ÜRET
-                   </button>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-8">
-                   <div>
-                     <label className="block text-xl font-black text-emerald-800 mb-3">Okuma Metni:</label>
-                     <textarea value={hwText} onChange={e => setHwText(e.target.value)} className="w-full p-6 border-4 border-emerald-200 rounded-3xl h-64 font-bold text-lg outline-none text-slate-700 leading-relaxed shadow-inner" placeholder="Metni buraya yazın veya yapay zekaya ürettirin..." />
-                   </div>
-                   <div>
-                     <label className="block text-xl font-black text-amber-800 mb-3 flex items-center gap-2"><Calendar/> Teslim Süresi (Otomatik Kapatma):</label>
-                     <input type="datetime-local" value={hwDeadline} onChange={e => setHwDeadline(e.target.value)} className="w-full p-6 border-4 border-amber-200 rounded-3xl font-bold bg-amber-50 text-amber-900 outline-none text-lg shadow-inner" />
-                     <p className="text-md font-bold text-slate-500 mt-4 px-2 italic">* Seçilen tarih geldiğinde ödev öğrencilerin ekranından otomatik silinir.</p>
-                   </div>
-                </div>
-                
-                <div className="space-y-6 bg-slate-50 p-8 rounded-[3rem] border-4 border-slate-100">
-                   <h3 className="text-2xl font-black text-emerald-800 mb-4">Sorular:</h3>
-                   {hwQuestions.map((q, qIndex) => (
-                      <div key={qIndex} className="bg-white p-8 rounded-3xl border-4 border-emerald-100 space-y-4 relative shadow-sm">
-                         {hwQuestions.length > 1 && (
-                            <button onClick={() => setHwQuestions(hwQuestions.filter((_, i) => i !== qIndex))} className="absolute top-6 right-6 text-rose-500 bg-rose-50 p-3 rounded-xl hover:bg-rose-500 hover:text-white transition-colors"><Trash2 size={20}/></button>
-                         )}
-                         <label className="font-black text-emerald-600 text-lg">Soru {qIndex + 1}:</label>
-                         <input type="text" value={q.q} onChange={e => { const newQs = [...hwQuestions]; newQs[qIndex].q = e.target.value; setHwQuestions(newQs); }} className="w-full p-4 border-2 border-slate-200 rounded-2xl font-bold text-lg outline-none focus:border-emerald-400" placeholder="Soru cümlesi..." />
-                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                           {[0, 1, 2].map(optIndex => (
-                              <input key={optIndex} type="text" value={q.options[optIndex]} onChange={e => { const newQs = [...hwQuestions]; newQs[qIndex].options[optIndex] = e.target.value; setHwQuestions(newQs); }} className="p-4 border-2 border-slate-200 rounded-2xl font-bold text-lg outline-none focus:border-emerald-400" placeholder={`${['A', 'B', 'C'][optIndex]} Şıkkı`} />
-                           ))}
-                         </div>
-                         <div className="bg-emerald-50 p-4 rounded-2xl border-2 border-emerald-100 flex items-center gap-4 mt-4">
-                           <label className="font-black text-emerald-800 text-lg whitespace-nowrap">Doğru Cevap:</label>
-                           <select value={q.correct} onChange={e => { const newQs = [...hwQuestions]; newQs[qIndex].correct = Number(e.target.value); setHwQuestions(newQs); }} className="w-full md:w-auto p-3 bg-white border-2 border-emerald-200 rounded-xl font-black text-lg text-emerald-700 outline-none cursor-pointer">
-                              <option value={0}>A Şıkkı</option> <option value={1}>B Şıkkı</option> <option value={2}>C Şıkkı</option>
-                           </select>
-                         </div>
-                      </div>
-                   ))}
-                   
-                   <button onClick={() => setHwQuestions([...hwQuestions, { q: '', options: ['', '', ''], correct: 0 }])} className="w-full bg-emerald-100 text-emerald-700 py-6 rounded-3xl font-black text-xl border-4 border-emerald-200 border-dashed flex items-center justify-center gap-3 hover:bg-emerald-200 transition-colors"><Plus size={28}/> YENİ SORU EKLE</button>
-                </div>
-
-                <button onClick={handlePublishHomework} className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-6 rounded-full font-black text-3xl shadow-[0_8px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none transition-all mt-8 flex items-center justify-center gap-4"><Send size={32}/> SINIF PANOSUNA GÖNDER 🚀</button>
-              </div>
-            )}
-
-            {/* ÖĞRENCİLER VE KİLİT YÖNETİMİ SEKMESİ */}
-            {teacherTab === 'students' && (
-              <div className="animate-in fade-in duration-300">
-                <div className="flex flex-col md:flex-row gap-4 mb-10 bg-emerald-50 p-6 md:p-8 rounded-3xl border-4 border-emerald-200 shadow-sm">
-                  <input type="text" placeholder="Öğrenci Adı Soyadı" value={newStudentName} onChange={e=>setNewStudentName(e.target.value)} className="flex-1 p-5 border-4 border-white rounded-2xl font-black text-xl outline-none shadow-inner" />
-                  <input type="text" placeholder="Şifre" value={newStudentPassword} onChange={e=>setNewStudentPassword(e.target.value)} className="w-full md:w-40 p-5 border-4 border-white rounded-2xl font-black text-center text-xl outline-none shadow-inner" />
-                  <button onClick={handleAddStudent} className="bg-emerald-500 text-white font-black px-10 py-4 rounded-2xl shadow-[0_4px_0_rgb(4,120,87)] active:translate-y-1 active:shadow-none transition-all text-xl">EKLE</button>
-                </div>
-                {students.length === 0 && <button onClick={handleLoadDefaultClass} className="bg-amber-100 text-amber-800 px-8 py-4 rounded-full font-black text-lg border-4 border-amber-200 mb-8 mx-auto block hover:bg-amber-200 transition-colors shadow-sm">1/A Hazır Listesini Yükle</button>}
-                
-                <div className="grid grid-cols-1 gap-4">
-                  {students.map(s => (
-                    <div key={s.id} className="flex flex-col md:flex-row justify-between items-center p-6 bg-white rounded-3xl border-4 border-emerald-100 shadow-sm gap-6 hover:border-emerald-300 transition-colors">
-                      <div className="flex-1 font-black text-emerald-900 text-2xl flex items-center gap-4">
-                         {s.name} 
-                         {s.teacherStars > 0 && <span className="bg-amber-100 text-amber-600 text-sm px-3 py-1 rounded-full flex items-center gap-1 border-2 border-amber-200 shadow-sm">🌟 x{s.teacherStars}</span>}
-                      </div>
-                      
-                      <div className="flex items-center gap-3 flex-wrap justify-end">
-                        {/* Öğretmen Yıldızı Butonu */}
-                        <button onClick={() => handleGiveTeacherStar(s.id, s.teacherStars)} className="bg-amber-400 text-white p-4 rounded-2xl shadow-[0_4px_0_rgb(180,83,9)] active:translate-y-1 active:shadow-none hover:bg-amber-500 transition-all border-2 border-amber-500" title="Motivasyon Yıldızı Gönder"><Gift size={24}/></button>
-
-                        {/* Akademi Seviye Yönetimi */}
-                        <div className="bg-indigo-50 border-4 border-indigo-100 rounded-2xl flex items-center p-2 font-black text-indigo-800">
-                           <span className="px-3 text-sm">Akademi Lvl:</span>
-                           <select value={s.academyLevel || 1} onChange={(e) => updateAcademyLevel(Number(e.target.value), s.id)} className="bg-white border-2 border-indigo-200 rounded-xl p-2 outline-none cursor-pointer">
-                              <option value={1}>1. Isınma</option> <option value={2}>2. Schulte</option> <option value={3}>3. Flaş</option> <option value={4}>4. Metronom</option>
-                           </select>
-                        </div>
-
-                        {/* Şifre Yönetimi */}
-                        {editingPasswords[s.id] !== undefined ? (
-                          <div className="flex items-center gap-2 bg-emerald-50 p-2 rounded-2xl border-4 border-emerald-100">
-                            <input type="text" value={editingPasswords[s.id]} onChange={(e) => setEditingPasswords({...editingPasswords, [s.id]: e.target.value})} className="w-24 p-3 border-2 border-emerald-300 rounded-xl text-center font-black tracking-widest outline-none bg-white" maxLength={4} />
-                            <button onClick={() => handleUpdatePassword(s.id, editingPasswords[s.id])} className="bg-emerald-500 text-white p-3 rounded-xl font-bold shadow-sm"><Check size={20}/></button>
-                            <button onClick={() => { const newEd = {...editingPasswords}; delete newEd[s.id]; setEditingPasswords(newEd); }} className="bg-slate-200 text-slate-600 p-3 rounded-xl font-bold shadow-sm"><X size={20}/></button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border-4 border-slate-100">
-                            <span className="bg-white px-4 py-3 rounded-xl border-2 border-slate-200 text-slate-700 tracking-widest font-black">{s.password}</span>
-                            <button onClick={() => setEditingPasswords({...editingPasswords, [s.id]: s.password})} className="bg-sky-500 text-white px-4 py-3 rounded-xl shadow-[0_4px_0_rgb(3,105,161)] active:translate-y-1 active:shadow-none font-black text-sm">Şifre Değiştir</button>
-                          </div>
-                        )}
-                        <button onClick={() => handleDeleteStudent(s.id, s.name)} className="bg-rose-100 text-rose-600 p-4 rounded-2xl hover:bg-rose-500 hover:text-white transition-colors border-2 border-rose-200 ml-2" title="Öğrenciyi Sil"><Trash2 size={24}/></button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {teacherTab === 'settings' && (
-              <div className="flex flex-col max-w-lg mx-auto gap-6 mt-12 bg-emerald-50 p-10 rounded-[3rem] border-4 border-emerald-100 animate-in fade-in duration-300 shadow-sm">
-                 <div className="text-center mb-4">
-                   <div className="w-20 h-20 bg-white rounded-full mx-auto flex items-center justify-center text-emerald-500 shadow-sm mb-4 border-4 border-emerald-200"><Lock size={32}/></div>
-                   <h3 className="text-2xl font-black text-emerald-800">Yönetici Şifresi</h3>
-                   <p className="text-emerald-600 font-bold mt-2">Öğretmen paneline giriş şifrenizi güncelleyin.</p>
-                 </div>
-                 <input type="text" placeholder="Yeni 4 Haneli Şifre" value={newTeacherPasswordInput} onChange={e=>setNewTeacherPasswordInput(e.target.value)} className="p-5 border-4 border-white rounded-2xl font-black text-center tracking-[1em] text-2xl outline-none focus:border-emerald-300" maxLength={4} />
-                 <button onClick={handleUpdateTeacherPassword} className="bg-emerald-500 text-white font-black py-5 rounded-2xl shadow-[0_6px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none transition-all text-xl mt-2">ŞİFREYİ GÜNCELLE</button>
-              </div>
-            )}
-            
-            {teacherMsg && (
-              <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-8 py-4 rounded-full font-black text-lg shadow-2xl animate-bounce z-50 flex items-center gap-3">
-                <Check className="text-emerald-400" /> {teacherMsg}
-              </div>
-            )}
           </div>
-        )}
+        </div>
+      )}
 
-        </div> {/* flex-1 w-full px-4 kapanışı */}
-      </div> {/* min-h-screen kapanışı */}
-      )} {/* İkinci ekranları saran bloğun kapanışı */}
-
-    </div> {/* En dıştaki ana sayfa kutusunun kapanışı */}
+    </div>
   );
 }
