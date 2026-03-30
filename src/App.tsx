@@ -5,7 +5,6 @@ import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged }
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-// --- FİREBASE YAPILANDIRMASI ---
 const firebaseConfig = {
   apiKey: "AIzaSyBBdIcHoWFcQCkZxqwK_CqYt4jARiLxVHE",
   authDomain: "a-ogretmen-asistani.firebaseapp.com",
@@ -39,6 +38,23 @@ const RANKS = [
   { lvl: 2, name: "Hece Kâşifi", icon: "🛶" },
   { lvl: 3, name: "Kelime Avcısı", icon: "🦅" },
   { lvl: 4, name: "Hikâye Ustası", icon: "📜" }
+];
+
+// --- DİNAMİK ANTRENMAN HAVUZLARI ---
+const FLASH_POOLS = [
+  {w:"Elma", o:["Armut","Elma","Muz"]}, {w:"Kedi", o:["Köpek","Kedi","Kuş"]}, {w:"Güneş", o:["Bulut","Güneş","Yıldız"]},
+  {w:"Masa", o:["Sandalye","Masa","Koltuk"]}, {w:"Kitap", o:["Defter","Silgi","Kitap"]}, {w:"Mavi", o:["Sarı","Mavi","Kırmızı"]},
+  {w:"Okul", o:["Ev","Okul","Park"]}, {w:"Çiçek", o:["Ağaç","Çiçek","Yaprak"]}, {w:"Deniz", o:["Göl","Deniz","Nehir"]},
+  {w:"Mutlu", o:["Üzgün","Şaşkın","Mutlu"]}, {w:"Kalem", o:["Silgi","Defter","Kalem"]}, {w:"Uçak", o:["Gemi","Uçak","Tren"]},
+  {w:"Top", o:["Koş","Top","Al"]}, {w:"Orman", o:["Ağaç","Orman","Dağ"]}
+];
+
+const METRONOME_TEXTS = [
+  "Bir varmış bir yokmuş. Küçük bir çocuk ormanda gezerken kocaman bir ağaç görmüş. Ağacın dallarında kırmızı elmalar parlıyormuş. Çocuk elmalardan birini alıp afiyetle yemiş.",
+  "Güneşli bir sabah sevimli bir tavşan yuvasından çıkmış. Havuç tarlasında zıplayarak koşmuş. Karnı doyana kadar havuç yemiş.",
+  "Mavi denizlerde yüzen küçük bir balık varmış. Arkadaşlarıyla saklambaç oynamayı çok severmiş. Bir gün büyük bir mercan kayalığı bulmuşlar.",
+  "Gökyüzünde süzülen renkli bir uçurtma çocukların neşesi olmuş. Rüzgar estikçe daha da yükseklere çıkmış. Bulutların arasından gülümsemiş.",
+  "Kış gelince her yer bembeyaz karla kaplanmış. Çocuklar dışarı çıkıp kardan adam yapmışlar. Havuçtan burun ve kömürden göz takmışlar."
 ];
 
 export default function App() {
@@ -116,15 +132,14 @@ export default function App() {
   const [schulteGrid, setSchulteGrid] = useState([]);
   const [schulteExpected, setSchulteExpected] = useState(1);
   
-  const flashWordsData = [{w:"Top", o:["Koş","Top","Al"]}, {w:"Kalem", o:["Silgi","Defter","Kalem"]}, {w:"Mavi gök", o:["Kırmızı ev","Mavi gök","Sıcak çay"]}];
+  const [flashWordsData, setFlashWordsData] = useState([]);
   const [flashStage, setFlashStage] = useState(0);
   const [isFlashShowing, setIsFlashShowing] = useState(false);
   const [flashMessage, setFlashMessage] = useState('');
   const [flashSpeed, setFlashSpeed] = useState(1500); 
   
-  const [metronomeBPM, setMetronomeBPM] = useState(60); 
+  const [metronomeBPM, setMetronomeBPM] = useState(40); 
   const [metronomeIndex, setMetronomeIndex] = useState(-1);
-  const metronomeText = "Bir varmış bir yokmuş. Küçük bir çocuk ormanda gezerken kocaman bir ağaç görmüş. Ağacın dallarında kırmızı elmalar parlıyormuş. Çocuk elmalardan birini alıp afiyetle yemiş.";
   const [metronomeChunks, setMetronomeChunks] = useState([]);
 
   useEffect(() => {
@@ -322,6 +337,12 @@ export default function App() {
   };
 
   const startFlash = () => {
+    const shuffled = [...FLASH_POOLS].sort(() => 0.5 - Math.random()).slice(0, 3);
+    const randomizedOptions = shuffled.map(item => ({
+       w: item.w,
+       o: [...item.o].sort(() => 0.5 - Math.random())
+    }));
+    setFlashWordsData(randomizedOptions);
     setFlashStage(0); setFlashMessage(''); setView('academy-flash-ready');
     speakInstruction("Şimdi gözlerinle fotoğraf çekme zamanı! Ekranda bir kelime şimşek gibi parlayıp kaybolacak. Onu aklında tut ve aşağıdaki seçeneklerden doğru olanı bul. Gözünü kırpma, hazırsan başla!");
   };
@@ -350,7 +371,8 @@ export default function App() {
   };
 
   const startMetronome = () => {
-    const words = metronomeText.split(/\s+/);
+    const randomText = METRONOME_TEXTS[Math.floor(Math.random() * METRONOME_TEXTS.length)];
+    const words = randomText.split(/\s+/);
     const chunks = [];
     for(let i=0; i<words.length; i+=2) chunks.push(words.slice(i, i+2).join(' ')); 
     setMetronomeChunks(chunks); setMetronomeIndex(-1); setView('academy-metronome-ready');
@@ -453,11 +475,11 @@ export default function App() {
     DİKKAT KESİNLİKLE YASAK: Gizli kelimeleri veya metindeki herhangi bir kelimeyi ** (yıldız) veya başka bir işaretle ASLA VURGULAMA! Metin tamamen düz yazı olsun.
     Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
     
-    YALNIZCA JSON formatında cevap ver: targetWords içine kelimenin metinde geçen TAMP TAMINA ek almış halini küçük harfle yaz. category içine seçtiğin kategorinin KISA adını yaz (Örn: hayvan, renk, duygu).
+    YALNIZCA JSON formatında cevap ver: targetWords içine kelimenin metinde geçen TAMP TAMINA ek almış halini küçük harfle yaz. category içine seçtiğin kategorinin KISA adını büyük harflerle yaz (Örn: HAYVAN, RENK, DUYGU).
     { 
       "text": "Hikaye metni buraya...", 
       "questions": [ { "id": 1, "q": "Soru 1?", "options": ["A", "B", "C"], "correct": 0 }, { "id": 2, "q": "Soru 2?", "options": ["A", "B", "C"], "correct": 1 } ],
-      "treasureHunt": { "category": "${randomCategory.split(' (')[0]}", "targetWords": ["kelime1", "kelime2", "kelime3"] }
+      "treasureHunt": { "category": "${randomCategory.split(' (')[0].toUpperCase()}", "targetWords": ["kelime1", "kelime2", "kelime3"] }
     }`;
 
     const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
@@ -683,7 +705,8 @@ export default function App() {
        const isFound = foundWords.includes(lowerCleanWord);
 
        const handleWordClick = () => {
-         if (!isReadingFinished && isTarget && !isFound) { 
+         if (!isReadingFinished) return; // YENİ: Sadece 'Bitirdim' dedikten sonra tıklanabilir.
+         if (isTarget && !isFound) { 
             const newFoundWords = [...foundWords, lowerCleanWord];
             setFoundWords(newFoundWords); 
             
@@ -698,12 +721,11 @@ export default function App() {
          }
        };
 
-       // YENİ: Gizli kelimeler okunurken BOLD veya RENKLİ OLMAYACAK (Çocuk kendi bulacak).
-       // Sadece bulduğunda sarı fosforlu kalemle çizilmiş gibi olacak.
+       // YENİ: Gizli kelimeler okunurken normal görünecek. Bulunup Tıklandığında sarı parlayacak.
        let wordContainerClass = "";
        if (isFound) {
           wordContainerClass = "bg-amber-300 text-amber-900 rounded-lg px-1 transition-all duration-300 scale-110 inline-block shadow-sm";
-       } else if (!isReadingFinished && isTarget) {
+       } else if (isReadingFinished && isTarget) {
           wordContainerClass = "cursor-pointer hover:bg-sky-100 transition-all rounded-lg px-1 inline-block";
        }
 
@@ -734,11 +756,11 @@ export default function App() {
   const topicColors = ['#FF6B6B','#FF9F43','#FECA57','#48DBFB','#FF9FF3','#54A0FF','#5F27CD','#00D2D3','#01CBC6'];
   // ══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="relative overflow-x-hidden font-sans text-slate-800" style={{ fontFamily: "'Nunito', sans-serif" }}>
+    <div className="relative overflow-x-hidden font-sans text-slate-800 bg-slate-50" style={{ fontFamily: "'Nunito', sans-serif" }}>
 
       {/* ── KÜRESEL STİLLER, ANİMASYONLAR VE YAZICI AYARLARI ── */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap');
         
         @keyframes om-float { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-12px)} }
         @keyframes om-twinkle { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.85)} }
@@ -752,8 +774,6 @@ export default function App() {
         .om-bob{animation:om-bob 3.5s ease-in-out infinite}
         .animate-pendulum{animation:pendulum 3s infinite ease-in-out}
         
-        .om-title { font-family: 'Fredoka One', cursive; }
-        
         @media print {
           body * { visibility: hidden; background: white !important; }
           #print-section, #print-section * { visibility: visible; color: black !important; }
@@ -762,16 +782,17 @@ export default function App() {
         }
       `}</style>
 
-      {/* ── PROFİL MODALI VE ÇIKIŞ YAP BUTONU ── */}
+      {/* ── PROFİL MODALI VE ÇIKIŞ YAP BUTONU (Taşma Sorunu Çözüldü) ── */}
       {showProfileModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-[3rem] p-8 w-full max-w-md shadow-2xl relative border-8 border-sky-200 animate-in zoom-in duration-300">
-            <button onClick={() => setShowProfileModal(false)} className="absolute top-4 right-4 bg-slate-100 p-3 rounded-full text-slate-600 hover:bg-rose-100 hover:text-rose-600 transition-colors"><X size={24}/></button>
-            <div className="flex flex-col items-center">
+          <div className="bg-white rounded-[3rem] p-6 md:p-8 w-full max-w-md shadow-2xl relative border-8 border-sky-200 animate-in zoom-in duration-300 max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setShowProfileModal(false)} className="sticky top-0 float-right z-50 bg-slate-100 p-3 rounded-full text-slate-600 hover:bg-rose-100 hover:text-rose-600 transition-colors"><X size={24}/></button>
+            
+            <div className="flex flex-col items-center clear-both">
               <div className="w-28 h-28 rounded-full bg-sky-100 text-6xl flex items-center justify-center mb-4 shadow-inner ring-8 ring-sky-50 drop-shadow-md">
                 {displayAvatar?.startsWith('data') ? <img src={displayAvatar} className="w-full h-full object-cover rounded-full" alt="" /> : (displayAvatar || '👤')}
               </div>
-              <h2 className="text-3xl font-black text-sky-900 om-title">{displayName || 'Misafir'}</h2>
+              <h2 className="text-3xl font-black text-sky-900">{displayName || 'Misafir'}</h2>
               
               <div className="mt-4 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-6 py-2 rounded-full font-black text-lg shadow-lg flex items-center gap-2 border-2 border-indigo-400">
                 {RANKS[academyLevel - 1].icon} {RANKS[academyLevel - 1].name}
@@ -779,10 +800,10 @@ export default function App() {
             </div>
             
             {/* Rütbe Vitrini */}
-            <div className="mt-8 grid grid-cols-4 gap-3">
+            <div className="mt-8 grid grid-cols-4 gap-2 md:gap-3">
               {RANKS.map(r => (
                 <div key={r.lvl} className={`flex flex-col items-center justify-center p-3 rounded-2xl border-4 transition-all ${academyLevel >= r.lvl ? 'bg-emerald-50 border-emerald-300 shadow-sm' : 'bg-slate-50 border-slate-200 grayscale opacity-50'}`}>
-                  <span className="text-3xl drop-shadow-sm">{r.icon}</span>
+                  <span className="text-2xl md:text-3xl drop-shadow-sm">{r.icon}</span>
                   {academyLevel < r.lvl && <Lock size={14} className="text-slate-400 mt-2" />}
                 </div>
               ))}
@@ -790,19 +811,19 @@ export default function App() {
 
             <div className="mt-8 space-y-4 mb-8">
               <div className="bg-sky-50 p-5 rounded-3xl border-4 border-sky-100 flex items-center justify-between shadow-sm">
-                <div className="font-black text-sky-800 flex items-center gap-3 text-lg"><BookOpen className="text-sky-500"/> Kelime Kumbarası</div>
-                <div className="text-3xl font-black text-sky-600 om-title">{myStats.reduce((acc, curr) => acc + (Number(curr.words) || 0), 0)}</div>
+                <div className="font-black text-sky-800 flex items-center gap-3 text-md md:text-lg"><BookOpen className="text-sky-500"/> Kelime Kumbarası</div>
+                <div className="text-2xl md:text-3xl font-black text-sky-600">{myStats.reduce((acc, curr) => acc + (Number(curr.words) || 0), 0)}</div>
               </div>
               <div className="bg-fuchsia-50 p-5 rounded-3xl border-4 border-fuchsia-100 shadow-sm">
                 <div className="font-black text-fuchsia-800 text-lg mb-4 flex items-center gap-2"><Trophy className="text-fuchsia-500"/> Başarı Vitrini</div>
                 <div className="flex flex-wrap gap-3">
-                  <div className="bg-white px-5 py-3 rounded-2xl flex items-center gap-3 shadow-sm border-2 border-fuchsia-200">
-                    <span className="text-3xl drop-shadow-md">🕵️‍♂️</span>
+                  <div className="bg-white px-4 md:px-5 py-3 rounded-2xl flex items-center gap-3 shadow-sm border-2 border-fuchsia-200">
+                    <span className="text-2xl md:text-3xl drop-shadow-md">🕵️‍♂️</span>
                     <span className="font-black text-fuchsia-700 text-xl">x {myBadgeCount}</span>
                   </div>
                   {teacherStars > 0 && (
-                    <div className="bg-white px-5 py-3 rounded-2xl flex items-center gap-3 shadow-sm border-2 border-amber-300 animate-pulse">
-                      <span className="text-3xl drop-shadow-md">🌟</span>
+                    <div className="bg-white px-4 md:px-5 py-3 rounded-2xl flex items-center gap-3 shadow-sm border-2 border-amber-300 animate-pulse">
+                      <span className="text-2xl md:text-3xl drop-shadow-md">🌟</span>
                       <span className="font-black text-amber-600 text-xl">x {teacherStars}</span>
                     </div>
                   )}
@@ -822,9 +843,9 @@ export default function App() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/80 backdrop-blur-md">
           <div className="bg-white p-12 rounded-[4rem] shadow-2xl border-8 border-amber-300 text-center animate-bounce cursor-pointer max-w-xl" onClick={() => setShowTeacherStarGift(false)}>
             <span className="text-[8rem] block mb-6 drop-shadow-2xl">🎁</span>
-            <h2 className="text-5xl font-black text-amber-600 leading-tight om-title">Sürpriz Paketin Var!</h2>
+            <h2 className="text-5xl font-black text-amber-600 leading-tight">Sürpriz Paketin Var!</h2>
             <p className="text-2xl font-bold text-amber-800 mt-4">Arif Öğretmenin sana özel bir yıldız gönderdi! 🌟</p>
-            <button className="mt-10 bg-amber-500 text-white px-12 py-5 rounded-full font-black text-2xl shadow-[0_6px_0_rgb(180,83,9)] active:translate-y-2 active:shadow-none transition-all om-title">PAKETİ AÇ</button>
+            <button className="mt-10 bg-amber-500 text-white px-12 py-5 rounded-full font-black text-2xl shadow-[0_6px_0_rgb(180,83,9)] active:translate-y-2 active:shadow-none transition-all">PAKETİ AÇ</button>
           </div>
         </div>
       )}
@@ -834,7 +855,7 @@ export default function App() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none bg-white/60 backdrop-blur-sm">
           <div className="bg-white p-12 rounded-[4rem] shadow-2xl flex flex-col items-center animate-bounce border-8 border-amber-300 text-center max-w-xl">
             <span className="text-9xl mb-6 drop-shadow-2xl">🕵️‍♂️</span>
-            <h2 className="text-5xl font-black text-amber-600 leading-tight om-title">Harika Bir Dikkat!</h2>
+            <h2 className="text-5xl font-black text-amber-600 leading-tight">Harika Bir Dikkat!</h2>
             <p className="text-2xl font-bold text-amber-800 mt-4">Gerçek bir Okuma Dedektifi olduğunu kanıtladın! 🌟</p>
           </div>
         </div>
@@ -855,11 +876,11 @@ export default function App() {
           <div className="om-tw2 absolute top-[40%] left-[10%] text-3xl z-10 drop-shadow-md">✨</div>
           <div className="om-bob absolute top-[12%] right-[5%] z-10 text-5xl drop-shadow-xl">🏔️<span className="text-2xl">👾</span></div>
           
-          {/* Kazadan Kurtarılan Dinozor (Sol Alt Köşede Sabit) */}
+          {/* Dinozor (Sabit ve Ortadaki paneli etkilemez) */}
           <div className="fixed bottom-0 left-4 z-40 text-[6rem] md:text-[8rem] drop-shadow-2xl pointer-events-none" style={{transform: 'scaleX(-1)'}}>🦕</div>
 
           {/* Üst Navigasyon Çubuğu */}
-          <div className="w-full flex flex-col md:flex-row items-center justify-between p-4 md:p-8 z-50 gap-6">
+          <div className="w-full flex flex-col xl:flex-row items-center justify-between p-4 md:p-8 z-50 gap-6">
             
             {/* Sol: Profil Butonu */}
             <button onClick={() => isAuthenticated ? setShowProfileModal(true) : null} className={`flex items-center gap-3 p-2 pr-6 rounded-full shadow-xl border-4 ${isAuthenticated ? 'border-amber-300 bg-gradient-to-b from-amber-400 to-amber-500 cursor-pointer hover:scale-105 transition-transform' : 'border-slate-300 bg-slate-200 cursor-default'}`}>
@@ -872,31 +893,31 @@ export default function App() {
               </div>
             </button>
 
-            {/* Orta: Gökkuşağı Başlık */}
-            <div className="flex-1 text-center om-title">
-              <h1 className="text-5xl md:text-7xl font-black tracking-tight drop-shadow-[0_4px_4px_rgba(0,0,0,0.2)]">
+            {/* Orta: GÖSTERİŞLİ VE ORİJİNAL FONT BAŞLIK */}
+            <div className="flex-1 flex justify-center w-full">
+              <h1 className="text-5xl md:text-[5.5rem] font-black tracking-tight drop-shadow-[0_6px_0_rgba(0,0,0,0.2)] text-center leading-none">
                 <span className="text-rose-500">O</span><span className="text-orange-500">K</span><span className="text-amber-400">U</span><span className="text-emerald-500">M</span><span className="text-sky-500">A</span>
-                <br className="md:hidden"/>
-                <span className="text-fuchsia-500 md:ml-4">M</span><span className="text-rose-500">A</span><span className="text-orange-500">C</span><span className="text-amber-400">E</span><span className="text-emerald-500">R</span><span className="text-sky-500">A</span><span className="text-indigo-500">M</span>
+                <br className="xl:hidden"/>
+                <span className="text-fuchsia-500 xl:ml-6">M</span><span className="text-rose-500">A</span><span className="text-orange-500">C</span><span className="text-amber-400">E</span><span className="text-emerald-500">R</span><span className="text-sky-500">A</span><span className="text-indigo-500">S</span><span className="text-rose-500">I</span>
               </h1>
             </div>
 
             {/* Sağ: Öğretmen Girişi */}
-            <button onClick={() => setView('teacher-login')} className="flex items-center gap-3 p-3 px-6 rounded-full shadow-xl border-4 border-amber-600 bg-gradient-to-b from-amber-600 to-amber-700 text-white font-black hover:scale-105 transition-transform cursor-pointer">
+            <button onClick={() => setView('teacher-login')} className="flex items-center gap-3 p-3 px-6 rounded-full shadow-xl border-4 border-amber-600 bg-gradient-to-b from-amber-600 to-amber-700 text-white font-black hover:scale-105 transition-transform cursor-pointer flex-shrink-0">
               <span className="text-sm md:text-lg">1/A SINIFI – ARİF ÖĞRETMEN</span>
               <span className="text-2xl drop-shadow-md">🔔</span>
             </button>
           </div>
 
           {/* ── İÇERİK ALANI ── */}
-          <div className="flex-1 flex flex-col items-center justify-center w-full z-20 pb-24 px-4">
+          <div className="flex-1 flex flex-col items-center justify-center w-full z-20 pb-32 px-4">
             
             {/* GÜVENLİK KAPISI: GİRİŞ EKRANI */}
             {!isAuthenticated ? (
               <div className="bg-white/95 backdrop-blur-md rounded-[3rem] p-8 md:p-12 w-full max-w-lg shadow-[0_20px_60px_rgba(0,0,0,0.2)] border-8 border-white animate-in zoom-in duration-300">
                 <div className="text-center mb-8">
                   <div className="text-7xl mb-4 om-f1 drop-shadow-xl">🚀</div>
-                  <h2 className="text-4xl font-black text-sky-600 om-title">Maceraya Katıl!</h2>
+                  <h2 className="text-4xl font-black text-sky-600">Maceraya Katıl!</h2>
                   <p className="text-slate-500 font-bold mt-2 text-lg">Lütfen ismini seç ve şifreni gir.</p>
                 </div>
 
@@ -909,7 +930,7 @@ export default function App() {
                   <input type="password" value={studentPassword} onChange={e => { setStudentPassword(e.target.value); setLoginError(''); }} onKeyDown={e => e.key === 'Enter' && handleLoginSubmit()} className="w-full p-4 border-4 border-sky-200 rounded-2xl font-black text-3xl tracking-[1em] text-center text-sky-800 bg-sky-50 outline-none focus:border-sky-400 transition-colors" placeholder="••••" maxLength={4} />
 
                   {loginError && (
-                    <div className="bg-rose-100 border-2 border-rose-300 p-3 rounded-xl animate-bob">
+                    <div className="bg-rose-100 border-2 border-rose-300 p-3 rounded-xl">
                       <p className="text-rose-600 font-black text-center">❌ {loginError}</p>
                     </div>
                   )}
@@ -921,14 +942,14 @@ export default function App() {
                     <span className="font-black text-slate-600 text-lg group-hover:text-indigo-600 transition-colors">Bu cihazda beni hatırla</span>
                   </div>
 
-                  <button onClick={handleLoginSubmit} className="w-full bg-gradient-to-b from-sky-400 to-sky-500 text-white py-5 rounded-2xl font-black text-2xl shadow-[0_6px_0_rgb(2,132,199)] active:translate-y-2 active:shadow-none transition-all om-title mt-4 tracking-wide">
+                  <button onClick={handleLoginSubmit} className="w-full bg-gradient-to-b from-sky-400 to-sky-500 text-white py-5 rounded-2xl font-black text-2xl shadow-[0_6px_0_rgb(2,132,199)] active:translate-y-2 active:shadow-none transition-all mt-4 tracking-wide">
                     GİRİŞ YAP 🚀
                   </button>
                 </div>
               </div>
             ) : (
               
-              /* ── 3 DEVASA MACERA KARTI (Sadece Giriş Yapınca Çıkar) ── */
+              /* ── 3 DEVASA MACERA KARTI ── */
               <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12 w-full max-w-6xl animate-in slide-in-from-bottom-10 duration-500">
                 
                 {/* 1. ÖDEV KARTI (Yeşil Daire) */}
@@ -941,10 +962,10 @@ export default function App() {
                     </div>
                     <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
                       <div className="font-black text-slate-400 text-sm tracking-widest mb-1">BUGÜNÜN GÖREVİ:</div>
-                      <div className="font-black text-xl md:text-2xl text-slate-800 om-title">{activeHomework ? 'SINIF ÖDEVİ' : 'ÖDEV YOK'}</div>
+                      <div className="font-black text-xl md:text-2xl text-slate-800">{activeHomework ? 'SINIF ÖDEVİ' : 'ÖDEV YOK'}</div>
                     </div>
                   </div>
-                  <button onClick={activeHomework ? handleStartHomework : null} className={`-mt-8 z-10 px-10 py-4 rounded-full font-black text-xl shadow-[0_6px_0_rgba(0,0,0,0.2)] active:translate-y-2 active:shadow-none transition-all om-title border-4 border-white/50 ${activeHomework ? 'bg-gradient-to-b from-emerald-400 to-emerald-600 text-white cursor-pointer' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
+                  <button onClick={activeHomework ? handleStartHomework : null} className={`-mt-8 z-10 px-10 py-4 rounded-full font-black text-xl shadow-[0_6px_0_rgba(0,0,0,0.2)] active:translate-y-2 active:shadow-none transition-all border-4 border-white/50 ${activeHomework ? 'bg-gradient-to-b from-emerald-400 to-emerald-600 text-white cursor-pointer' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
                     {activeHomework ? 'BAŞLAT 🚀' : 'BEKLİYOR...'}
                   </button>
                 </div>
@@ -957,7 +978,7 @@ export default function App() {
                     <span className="absolute bottom-0 right-10 text-3xl bg-white rounded-full p-2 shadow-md om-f3">👑</span>
                     <span className="text-7xl drop-shadow-2xl z-10 relative">🚀</span>
                   </div>
-                  <h3 className="text-center font-black text-orange-900 text-2xl om-title mb-4">HİKAYE KEŞFİ</h3>
+                  <h3 className="text-center font-black text-orange-900 text-2xl mb-4">HİKAYE KEŞFİ</h3>
                   
                   <div className="flex flex-wrap justify-center gap-2 mb-4">
                     {PREDEFINED_TOPICS.slice(0, 6).map((t, i) => (
@@ -975,7 +996,7 @@ export default function App() {
                     ))}
                   </div>
                   
-                  <button onClick={handleStartFreeReading} className="w-full bg-white text-orange-600 py-4 rounded-2xl font-black text-xl shadow-[0_6px_0_rgb(194,65,12)] active:translate-y-2 active:shadow-none transition-all om-title border-4 border-orange-200 mt-auto">
+                  <button onClick={handleStartFreeReading} className="w-full bg-white text-orange-600 py-4 rounded-2xl font-black text-xl shadow-[0_6px_0_rgb(194,65,12)] active:translate-y-2 active:shadow-none transition-all border-4 border-orange-200 mt-auto">
                     OKUMAYA BAŞLA ⭐
                   </button>
                 </div>
@@ -983,7 +1004,7 @@ export default function App() {
                 {/* 3. AKADEMİ KARTI (Mavi Dikdörtgen) */}
                 <div className="w-[300px] md:w-[340px] bg-gradient-to-b from-indigo-400 to-indigo-700 border-8 border-indigo-800 rounded-[2.5rem] p-6 shadow-2xl hover:-translate-y-2 transition-transform flex flex-col items-center justify-between">
                   <div className="text-7xl drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] mb-4">🏔️<span className="text-4xl">🏯</span></div>
-                  <h3 className="text-center font-black text-white text-2xl om-title mb-6 leading-tight drop-shadow-md">HIZLI OKUMA<br/>AKADEMİSİ</h3>
+                  <h3 className="text-center font-black text-white text-2xl mb-6 leading-tight drop-shadow-md">HIZLI OKUMA<br/>AKADEMİSİ</h3>
                   
                   <div className="w-full grid grid-cols-2 gap-3 mb-6">
                     {RANKS.map(r => (
@@ -995,7 +1016,7 @@ export default function App() {
                     ))}
                   </div>
 
-                  <button onClick={() => { setView('academy-menu'); }} className="w-full bg-indigo-900 text-white py-4 rounded-2xl font-black text-lg shadow-[0_6px_0_rgb(30,27,75)] active:translate-y-2 active:shadow-none transition-all om-title border-2 border-indigo-400 flex items-center justify-center gap-2 mt-auto">
+                  <button onClick={() => { setView('academy-menu'); }} className="w-full bg-indigo-900 text-white py-4 rounded-2xl font-black text-lg shadow-[0_6px_0_rgb(30,27,75)] active:translate-y-2 active:shadow-none transition-all border-2 border-indigo-400 flex items-center justify-center gap-2 mt-auto">
                     ANTRENMANA BAŞLA 💪
                   </button>
                 </div>
@@ -1003,18 +1024,18 @@ export default function App() {
             )}
           </div>
 
-          {/* ── ALT BİLGİ VE ATEŞ SERİSİ ÇUBUĞU (Ortalanmış ve Dinozor'dan Uzak) ── */}
+          {/* ── ALT BİLGİ VE ATEŞ SERİSİ ÇUBUĞU (Ortalanmış ve Güvenli) ── */}
           {isAuthenticated && (
-            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-4 w-[90%] md:w-auto justify-center">
+            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-4 w-full md:w-auto justify-center px-4">
               {lastStat && (
-                <div className="bg-slate-900/80 backdrop-blur-md border-2 border-white/20 rounded-full px-6 py-3 text-white font-black text-sm md:text-lg flex items-center gap-4 shadow-2xl om-title">
+                <div className="bg-slate-900/80 backdrop-blur-md border-2 border-white/20 rounded-full px-6 py-3 text-white font-black text-sm md:text-lg flex items-center gap-4 shadow-2xl">
                   <span>WPM: <span className="text-amber-400">{lastStat.wpm}</span> 🔥</span>
                   <span className="w-1 h-1 rounded-full bg-white/30"></span>
                   <span>Skor: <span className="text-emerald-400">{lastStat.compScore}/{lastStat.maxScore}</span> ⭐</span>
                 </div>
               )}
               {(savedProfile?.streak || 0) > 0 && (
-                <div className="bg-gradient-to-b from-amber-400 to-orange-500 border-2 border-amber-200 rounded-full px-5 py-3 text-white font-black text-lg flex items-center gap-2 shadow-2xl om-title animate-pulse">
+                <div className="bg-gradient-to-b from-amber-400 to-orange-500 border-2 border-amber-200 rounded-full px-5 py-3 text-white font-black text-lg flex items-center gap-2 shadow-2xl animate-pulse">
                   <Flame size={20} className="drop-shadow-md"/> {savedProfile.streak}
                 </div>
               )}
@@ -1037,7 +1058,7 @@ export default function App() {
                 <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-sky-100 text-2xl shadow-inner">
                   {displayAvatar?.startsWith('data') ? <img src={displayAvatar} className="w-full h-full object-cover" alt="" /> : (displayAvatar)}
                 </div>
-                <span className="font-black text-sky-800 text-xl om-title">{displayName ? displayName.split(' ')[0] : 'Giriş'}</span>
+                <span className="font-black text-sky-800 text-xl">{displayName ? displayName.split(' ')[0] : 'Giriş'}</span>
               </button>
               {(savedProfile?.streak || 0) > 0 && (
                 <div className="bg-amber-100 border-2 border-amber-300 px-4 py-2 rounded-full flex items-center gap-2 shadow-md animate-pulse">
@@ -1049,7 +1070,7 @@ export default function App() {
             </div>
           )}
 
-          <div className="flex-1 w-full px-4 font-sans max-w-6xl mx-auto">
+          <div className="flex-1 w-full px-4 max-w-6xl mx-auto">
 
             {/* HİKAYE ÜRETİM YÜKLENİYOR */}
             {isGeneratingStory && (
@@ -1064,7 +1085,7 @@ export default function App() {
             {view === 'academy-menu' && (
               <div className="bg-white/95 p-8 md:p-12 rounded-[3rem] shadow-2xl border-8 border-indigo-300 mt-20 text-center relative max-w-4xl mx-auto">
                 <button onClick={() => setView('student-setup')} className="absolute top-6 right-6 bg-slate-100 p-3 rounded-full text-slate-600 hover:bg-rose-100 hover:text-rose-600 transition-colors"><X size={24} /></button>
-                <h2 className="text-4xl md:text-5xl font-black text-indigo-600 mb-4 flex items-center justify-center gap-3 om-title"><Eye className="w-10 h-10"/> Hızlı Okuma Akademisi</h2>
+                <h2 className="text-4xl md:text-5xl font-black text-indigo-600 mb-4 flex items-center justify-center gap-3"><Eye className="w-10 h-10"/> Hızlı Okuma Akademisi</h2>
                 <p className="text-xl font-bold text-slate-500 mb-10">Profesyonel göz eğitim simülatörü. Aşama aşama ilerle!</p>
                 <div className="grid md:grid-cols-2 gap-6 md:gap-8">
                   <button onClick={() => { setView('academy-warmup-ready'); speakInstruction("Hoş geldin! Şimdi göz kaslarımızı güçlendireceğiz. Ekranda sağa ve sola giden kırmızı topu takip etmeni istiyorum. Ama çok önemli bir kuralımız var: Kafanı kesinlikle çevirme! Sadece gözlerinle takip et. Hazırsan başla butonuna bas!"); }}
@@ -1102,7 +1123,7 @@ export default function App() {
                 <h2 className="text-4xl font-black text-sky-600 mb-6">1. Aşama: Isınma</h2>
                 <p className="text-2xl font-bold text-sky-800 mb-8">Lütfen cihazın sesini dinle ve yönergeyi anladıktan sonra başla.</p>
                 <button onClick={() => speakInstruction("Hoş geldin! Şimdi göz kaslarımızı güçlendireceğiz. Ekranda sağa ve sola giden kırmızı topu takip etmeni istiyorum. Ama çok önemli bir kuralımız var: Kafanı kesinlikle çevirme! Sadece gözlerinle takip et. Hazırsan başla butonuna bas!")} className="bg-amber-100 text-amber-700 px-6 py-3 rounded-full font-black mb-8 flex items-center justify-center gap-2 mx-auto hover:bg-amber-200 transition-colors animate-pulse"><Volume2 /> Yönergeyi Tekrar Dinle</button>
-                <button onClick={() => { setWarmupTime(30); setView('academy-warmup-active'); }} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-3xl font-black shadow-[0_6px_0_rgb(3,105,161)] active:translate-y-2 active:shadow-none transition-all om-title">HAZIRIM, BAŞLA! 🚀</button>
+                <button onClick={() => { setWarmupTime(30); setView('academy-warmup-active'); }} className="w-full bg-sky-500 text-white py-6 rounded-2xl text-3xl font-black shadow-[0_6px_0_rgb(3,105,161)] active:translate-y-2 active:shadow-none transition-all">HAZIRIM, BAŞLA! 🚀</button>
               </div>
             )}
 
@@ -1123,14 +1144,14 @@ export default function App() {
                 <h2 className="text-4xl font-black text-emerald-600 mb-6">2. Aşama: Schulte Tablosu</h2>
                 <p className="text-2xl font-bold text-emerald-800 mb-8">Amacımız: Gözleri merkezde tutup çevresel görüş açısını genişletmek.</p>
                 <button onClick={() => speakInstruction("Harika gidiyorsun! Şimdi bir dedektif gibi sayıları bulacağız. Lütfen gözünü tablonun tam ortasından hiç ayırma ve kenarlardaki sayıları birden dokuza kadar sırayla bulup tıkla. Hazırsan başla!")} className="bg-amber-100 text-amber-700 px-6 py-3 rounded-full font-black mb-8 flex items-center justify-center gap-2 mx-auto hover:bg-amber-200 transition-colors animate-pulse"><Volume2 /> Yönergeyi Tekrar Dinle</button>
-                <button onClick={() => setView('academy-schulte-active')} className="w-full bg-emerald-500 text-white py-6 rounded-2xl text-3xl font-black shadow-[0_6px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none transition-all om-title">HAZIRIM, BAŞLA! 🚀</button>
+                <button onClick={() => setView('academy-schulte-active')} className="w-full bg-emerald-500 text-white py-6 rounded-2xl text-3xl font-black shadow-[0_6px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none transition-all">HAZIRIM, BAŞLA! 🚀</button>
               </div>
             )}
 
             {view === 'academy-schulte-active' && (
               <div className="max-w-2xl mx-auto mt-20 text-center flex flex-col items-center justify-center relative bg-white p-10 rounded-[3rem] shadow-2xl border-8 border-emerald-200">
                 <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-emerald-600 p-4 rounded-full shadow-xl border-4 border-emerald-100 hover:bg-emerald-50"><ArrowLeft size={24} /></button>
-                <h2 className="text-3xl font-black text-emerald-600 mb-4 om-title">Schulte Tablosu</h2>
+                <h2 className="text-3xl font-black text-emerald-600 mb-4">Schulte Tablosu</h2>
                 <p className="text-xl font-bold text-emerald-800 mb-8">Gözünü ortadan ayırmadan sırayla 1'den 9'a kadar tıkla. <br /> Sıradaki: <span className="text-4xl text-rose-500">{schulteExpected}</span></p>
                 <div className="grid grid-cols-3 gap-4 w-full max-w-sm mx-auto">
                   {schulteGrid.map((num, i) => (
@@ -1157,14 +1178,14 @@ export default function App() {
                   </div>
                 </div>
                 <button onClick={() => speakInstruction("Şimdi gözlerinle fotoğraf çekme zamanı! Ekranda bir kelime şimşek gibi parlayıp kaybolacak. Onu aklında tut ve aşağıdaki seçeneklerden doğru olanı bul. Gözünü kırpma, hazırsan başla!")} className="bg-amber-100 text-amber-700 px-6 py-3 rounded-full font-black mb-8 flex items-center justify-center gap-2 mx-auto hover:bg-amber-200 transition-colors animate-pulse"><Volume2 /> Yönergeyi Tekrar Dinle</button>
-                <button onClick={() => { setView('academy-flash-active'); triggerFlashWord(); }} className="w-full bg-amber-500 text-white py-6 rounded-2xl text-3xl font-black shadow-[0_6px_0_rgb(180,83,9)] active:translate-y-2 active:shadow-none transition-all om-title">HAZIRIM, BAŞLA! 🚀</button>
+                <button onClick={() => { setView('academy-flash-active'); triggerFlashWord(); }} className="w-full bg-amber-500 text-white py-6 rounded-2xl text-3xl font-black shadow-[0_6px_0_rgb(180,83,9)] active:translate-y-2 active:shadow-none transition-all">HAZIRIM, BAŞLA! 🚀</button>
               </div>
             )}
 
             {view === 'academy-flash-active' && (
               <div className="max-w-3xl mx-auto mt-20 text-center flex flex-col items-center justify-center relative bg-white p-12 rounded-[3rem] shadow-2xl border-8 border-amber-200 min-h-[400px]">
                 <button onClick={() => setView('academy-menu')} className="absolute -top-6 -left-6 bg-white text-amber-600 p-4 rounded-full shadow-xl border-4 border-amber-100 hover:bg-amber-50"><ArrowLeft size={24} /></button>
-                <h2 className="text-3xl font-black text-amber-600 mb-2 om-title">Flaş Kelimeler</h2>
+                <h2 className="text-3xl font-black text-amber-600 mb-2">Flaş Kelimeler</h2>
                 <p className="text-xl font-bold text-slate-500 mb-8">Ekranda parlayan kelimeyi zihnine kazı!</p>
                 {flashMessage && <div className="text-2xl font-black text-emerald-500 mb-8">{flashMessage}</div>}
                 {isFlashShowing ? (
@@ -1190,7 +1211,7 @@ export default function App() {
                 <h2 className="text-4xl font-black text-fuchsia-600 mb-6">4. Aşama: Metronomlu Okuma</h2>
                 <p className="text-2xl font-bold text-fuchsia-800 mb-8">Amacımız: Ritim sayesinde geriye dönük okuma hatalarını (regresyon) engellemek.</p>
                 <button onClick={() => speakInstruction("İşte büyük görev! Arka planda çalan tik-tak sesinin ritmine uyarak ekrana gelen kelimeleri sesli bir şekilde oku. Ritimden hiç kopma. Hazırsan macerayı başlat!")} className="bg-amber-100 text-amber-700 px-6 py-3 rounded-full font-black mb-8 flex items-center justify-center gap-2 mx-auto hover:bg-amber-200 transition-colors animate-pulse"><Volume2 /> Yönergeyi Tekrar Dinle</button>
-                <button onClick={() => { setView('academy-metronome-active'); setMetronomeIndex(0); }} className="w-full bg-fuchsia-500 text-white py-6 rounded-2xl text-3xl font-black shadow-[0_6px_0_rgb(162,28,175)] active:translate-y-2 active:shadow-none transition-all om-title">HAZIRIM, BAŞLA! 🚀</button>
+                <button onClick={() => { setView('academy-metronome-active'); setMetronomeIndex(0); }} className="w-full bg-fuchsia-500 text-white py-6 rounded-2xl text-3xl font-black shadow-[0_6px_0_rgb(162,28,175)] active:translate-y-2 active:shadow-none transition-all">HAZIRIM, BAŞLA! 🚀</button>
               </div>
             )}
 
@@ -1201,7 +1222,7 @@ export default function App() {
                   <>
                     <div className="w-full max-w-sm mb-12 bg-fuchsia-50 p-6 rounded-3xl border-4 border-fuchsia-100 shadow-sm">
                       <label className="block text-xl font-black text-fuchsia-800 mb-4">Metronom Hızı: <span className="text-fuchsia-600 bg-white px-3 py-1 rounded-lg border-2 border-fuchsia-200">{metronomeBPM}</span> BPM</label>
-                      <input type="range" min="30" max="150" step="10" value={metronomeBPM} onChange={(e) => setMetronomeBPM(Number(e.target.value))} className="w-full accent-fuchsia-600 cursor-pointer" />
+                      <input type="range" min="10" max="150" step="10" value={metronomeBPM} onChange={(e) => setMetronomeBPM(Number(e.target.value))} className="w-full accent-fuchsia-600 cursor-pointer" />
                     </div>
                     <div className="h-64 flex items-center justify-center">
                       <span className="text-[5rem] md:text-[8rem] font-black text-fuchsia-800 tracking-tight leading-none drop-shadow-md">{metronomeChunks[metronomeIndex]}</span>
@@ -1210,9 +1231,9 @@ export default function App() {
                 ) : (
                   <div className="space-y-6">
                     <div className="text-7xl animate-bounce drop-shadow-lg">🎉</div>
-                    <h2 className="text-5xl font-black text-emerald-600 om-title">Mükemmel Odaklanma!</h2>
+                    <h2 className="text-5xl font-black text-emerald-600">Mükemmel Odaklanma!</h2>
                     <p className="text-2xl font-bold text-emerald-800">Metronom ritmi geriye dönüşleri başarıyla engelledi.</p>
-                    <button onClick={() => setView('academy-menu')} className="bg-emerald-500 text-white px-10 py-5 rounded-2xl text-2xl font-black shadow-[0_6px_0_rgb(4,120,87)] active:translate-y-1 active:shadow-none hover:bg-emerald-400 transition-all mt-6 om-title">Akademiye Dön</button>
+                    <button onClick={() => setView('academy-menu')} className="bg-emerald-500 text-white px-10 py-5 rounded-2xl text-2xl font-black shadow-[0_6px_0_rgb(4,120,87)] active:translate-y-1 active:shadow-none hover:bg-emerald-400 transition-all mt-6">Akademiye Dön</button>
                   </div>
                 )}
               </div>
@@ -1221,11 +1242,11 @@ export default function App() {
             {/* OKUMA ÖNCESİ EKRAN */}
             {view === 'reading-ready' && (
               <div className="max-w-2xl mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl mt-24 text-center animate-in slide-in-from-bottom-10 border-8 border-sky-200">
-                <h2 className="text-5xl font-black text-amber-600 mb-10 om-title drop-shadow-sm">Hazır mısın?</h2>
+                <h2 className="text-5xl font-black text-amber-600 mb-10 drop-shadow-sm">Hazır mısın?</h2>
                 {micError && <div className="bg-rose-100 text-rose-700 p-4 rounded-xl font-bold mb-8 flex items-center justify-center gap-2 border-2 border-rose-300"><Mic size={24}/> {micError}</div>}
                 <div className="flex gap-6 flex-col md:flex-row">
-                  <button onClick={() => beginTimer(false)} className="flex-1 bg-sky-500 text-white py-8 rounded-3xl text-2xl font-black shadow-[0_8px_0_rgb(2,132,199)] active:translate-y-2 active:shadow-none hover:bg-sky-400 transition-all om-title">SESSİZ OKU 📖</button>
-                  <button onClick={() => beginTimer(true)} className="flex-1 bg-rose-500 text-white py-8 rounded-3xl text-2xl font-black flex items-center justify-center gap-3 shadow-[0_8px_0_rgb(225,29,72)] active:translate-y-2 active:shadow-none hover:bg-rose-400 transition-all om-title"><Mic size={32} /> SESLİ OKU</button>
+                  <button onClick={() => beginTimer(false)} className="flex-1 bg-sky-500 text-white py-8 rounded-3xl text-2xl font-black shadow-[0_8px_0_rgb(2,132,199)] active:translate-y-2 active:shadow-none hover:bg-sky-400 transition-all">SESSİZ OKU 📖</button>
+                  <button onClick={() => beginTimer(true)} className="flex-1 bg-rose-500 text-white py-8 rounded-3xl text-2xl font-black flex items-center justify-center gap-3 shadow-[0_8px_0_rgb(225,29,72)] active:translate-y-2 active:shadow-none hover:bg-rose-400 transition-all"><Mic size={32} /> SESLİ OKU</button>
                 </div>
               </div>
             )}
@@ -1234,21 +1255,21 @@ export default function App() {
             {view === 'reading-active' && (
               <div className="max-w-5xl mx-auto mt-12 space-y-8 relative">
                 
-                {/* YENİ HAZİNE AVI BANNER'I (SADECE OKUMA BİTMEDİYSE ÇIKAR) */}
-                {!isReadingFinished && storyData?.treasureHunt && (
+                {/* YENİ HAZİNE AVI BANNER'I (SADECE OKUMA BİTİNCE ÇIKAR) */}
+                {isReadingFinished && storyData?.treasureHunt && (
                   <div className="sticky top-4 z-40 bg-white/95 backdrop-blur-md border-4 border-amber-400 p-4 md:p-6 rounded-[2rem] shadow-xl flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-10">
                     <div className="flex items-center gap-4">
-                      <div className="bg-amber-100 w-16 h-16 rounded-full flex items-center justify-center shadow-inner border-2 border-amber-300">
+                      <div className="bg-amber-100 w-16 h-16 rounded-full flex items-center justify-center shadow-inner border-2 border-amber-300 flex-shrink-0">
                         <Search className="text-amber-600 w-10 h-10" />
                       </div>
                       <div>
-                        <h4 className="font-black text-amber-900 text-xl md:text-2xl om-title">Dedektif Görevi!</h4>
+                        <h4 className="font-black text-amber-900 text-xl md:text-2xl">Dedektif Görevi!</h4>
                         <p className="font-bold text-amber-800 text-lg md:text-xl">
-                          Metindeki gizli <span className="font-black text-rose-600 uppercase text-2xl px-1">{storyData.treasureHunt.category}</span> isimlerini bulup tıkla!
+                          Metindeki gizli <span className="font-black text-rose-600 text-2xl px-1">{storyData.treasureHunt.category}</span> kelimelerini bulup tıkla!
                         </p>
                       </div>
                     </div>
-                    <div className="bg-amber-50 px-8 py-3 rounded-2xl border-4 border-amber-200 font-black text-amber-600 text-4xl text-center shadow-inner">
+                    <div className="bg-amber-50 px-8 py-3 rounded-2xl border-4 border-amber-200 font-black text-amber-600 text-4xl text-center shadow-inner flex-shrink-0">
                       {foundWords.length} / {storyData.treasureHunt.targetWords.length}
                     </div>
                   </div>
@@ -1267,13 +1288,13 @@ export default function App() {
                   </p>
                 </div>
 
-                {!isReadingFinished && <button onClick={finishReading} className="w-full bg-emerald-500 text-white py-8 rounded-full text-5xl font-black shadow-[0_8px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none hover:bg-emerald-400 transition-all mt-6 om-title tracking-wide">BİTİRDİM! 🎉</button>}
+                {!isReadingFinished && <button onClick={finishReading} className="w-full bg-emerald-500 text-white py-8 rounded-full text-5xl font-black shadow-[0_8px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none hover:bg-emerald-400 transition-all mt-6 tracking-wide">BİTİRDİM! 🎉</button>}
                 
                 {/* SORULAR */}
                 {isReadingFinished && (
                   <div className="space-y-8 animate-in slide-in-from-bottom-10">
                     <div className="bg-white p-8 md:p-12 rounded-[3rem] border-8 border-fuchsia-300 space-y-8 shadow-2xl">
-                      <h2 className="text-5xl font-black text-fuchsia-600 text-center mb-8 om-title">Soruları Cevapla 🧠</h2>
+                      <h2 className="text-5xl font-black text-fuchsia-600 text-center mb-8">Soruları Cevapla 🧠</h2>
                       {storyData.questions.map((q, idx) => (
                         <div key={q.id} className="bg-fuchsia-50 p-6 md:p-8 rounded-3xl border-4 border-fuchsia-200 shadow-sm">
                           <h3 className="text-2xl md:text-3xl font-black text-fuchsia-900 mb-6 leading-tight">{idx + 1}. {q.q}</h3>
@@ -1286,7 +1307,7 @@ export default function App() {
                           </div>
                         </div>
                       ))}
-                      <button onClick={checkAnswers} disabled={Object.keys(answers).length < storyData.questions.length} className="w-full bg-sky-500 text-white py-8 rounded-3xl text-4xl font-black shadow-[0_8px_0_rgb(2,132,199)] active:translate-y-2 active:shadow-none disabled:opacity-50 disabled:shadow-none disabled:translate-y-2 hover:bg-sky-400 transition-all mt-8 om-title tracking-widest">KARNEMİ GÖSTER 🏆</button>
+                      <button onClick={checkAnswers} disabled={Object.keys(answers).length < storyData.questions.length} className="w-full bg-sky-500 text-white py-8 rounded-3xl text-4xl font-black shadow-[0_8px_0_rgb(2,132,199)] active:translate-y-2 active:shadow-none disabled:opacity-50 disabled:shadow-none disabled:translate-y-2 hover:bg-sky-400 transition-all mt-8 tracking-widest">KARNEMİ GÖSTER 🏆</button>
                     </div>
                   </div>
                 )}
@@ -1297,9 +1318,9 @@ export default function App() {
             {view === 'evaluating' && (
               <div className="max-w-md mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl mt-32 text-center animate-in zoom-in duration-300 border-8 border-emerald-200">
                 {isUploading ? (
-                  <><Loader2 className="w-28 h-28 text-sky-500 animate-spin mx-auto mb-8" /><h2 className="text-4xl font-black text-sky-600 om-title">Sesin Uçuyor... 🚀</h2></>
+                  <><Loader2 className="w-28 h-28 text-sky-500 animate-spin mx-auto mb-8" /><h2 className="text-4xl font-black text-sky-600">Sesin Uçuyor... 🚀</h2></>
                 ) : (
-                  <><Loader2 className="w-28 h-28 text-emerald-500 animate-spin mx-auto mb-8" /><h2 className="text-4xl font-black text-emerald-600 om-title">Değerlendiriliyor... 🌟</h2></>
+                  <><Loader2 className="w-28 h-28 text-emerald-500 animate-spin mx-auto mb-8" /><h2 className="text-4xl font-black text-emerald-600">Değerlendiriliyor... 🌟</h2></>
                 )}
               </div>
             )}
@@ -1308,7 +1329,7 @@ export default function App() {
             {view === 'result' && readingResult && (
               <div className="max-w-3xl mx-auto bg-white/95 p-12 rounded-[4rem] shadow-2xl border-8 border-sky-300 mt-12 text-center space-y-10 animate-in slide-in-from-bottom-10">
                 <div className="text-8xl mb-6 animate-bounce drop-shadow-xl">🏆</div>
-                <h2 className="text-5xl font-black text-sky-600 om-title drop-shadow-sm">Tebrikler {readingResult.name.split(' ')[0]}!</h2>
+                <h2 className="text-5xl font-black text-sky-600 drop-shadow-sm">Tebrikler {readingResult.name.split(' ')[0]}!</h2>
                 
                 <div className="bg-indigo-50 p-10 rounded-3xl font-bold text-indigo-900 text-2xl relative shadow-inner border-4 border-indigo-200 leading-relaxed text-left italic">
                   "{readingResult.aiEvaluation.geribildirim}"
@@ -1319,14 +1340,14 @@ export default function App() {
                 
                 <div className="grid grid-cols-2 gap-8 mt-8">
                   <div className="bg-white p-8 rounded-3xl shadow-sm font-black border-4 border-amber-200 text-amber-800 text-2xl flex flex-col items-center justify-center">
-                    <span className="text-amber-500 text-6xl mb-3 drop-shadow-sm om-title">{readingResult.wpm}</span> Hız (WPM)
+                    <span className="text-amber-500 text-6xl mb-3 drop-shadow-sm">{readingResult.wpm}</span> Hız (WPM)
                   </div>
                   <div className="bg-white p-8 rounded-3xl shadow-sm font-black border-4 border-emerald-200 text-emerald-800 text-2xl flex flex-col items-center justify-center">
-                    <span className="text-emerald-500 text-6xl mb-3 drop-shadow-sm om-title">{readingResult.compScore}/{readingResult.maxScore}</span> Doğru
+                    <span className="text-emerald-500 text-6xl mb-3 drop-shadow-sm">{readingResult.compScore}/{readingResult.maxScore}</span> Doğru
                   </div>
                 </div>
                 
-                <button onClick={() => setView('student-setup')} className="w-full bg-sky-500 text-white py-8 rounded-full text-4xl font-black shadow-[0_8px_0_rgb(2,132,199)] active:translate-y-2 active:shadow-none hover:bg-sky-400 transition-all mt-10 om-title tracking-wide">YENİDEN OYNA 🎮</button>
+                <button onClick={() => setView('student-setup')} className="w-full bg-sky-500 text-white py-8 rounded-full text-4xl font-black shadow-[0_8px_0_rgb(2,132,199)] active:translate-y-2 active:shadow-none hover:bg-sky-400 transition-all mt-10 tracking-wide">YENİDEN OYNA 🎮</button>
               </div>
             )}
 
@@ -1334,22 +1355,22 @@ export default function App() {
             {view === 'teacher-login' && (
               <div className="max-w-md mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl border-8 border-emerald-300 mt-24">
                 <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-8 text-emerald-500 shadow-inner border-4 border-white"><User size={48} /></div>
-                <h2 className="text-4xl font-black text-emerald-600 text-center mb-10 om-title">Öğretmen Girişi</h2>
+                <h2 className="text-4xl font-black text-emerald-600 text-center mb-10">Öğretmen Girişi</h2>
                 <form onSubmit={e => { e.preventDefault(); if (teacherPassword === actualTeacherPassword) { setTeacherTab('radar'); setView('teacher'); setPasswordError(false); } else setPasswordError(true); }} className="space-y-6">
                   <input type="password" value={teacherPassword} onChange={e => setTeacherPassword(e.target.value)} className="w-full p-5 border-4 border-emerald-200 rounded-2xl text-center text-4xl tracking-[1em] bg-emerald-50 font-black outline-none text-emerald-900 focus:border-emerald-400 transition-colors" placeholder="••••" maxLength={4} />
                   {passwordError && <p className="text-rose-500 font-black text-center text-lg bg-rose-100 py-2 rounded-xl border-2 border-rose-200">❌ Hatalı Şifre!</p>}
-                  <button type="submit" className="w-full bg-emerald-500 text-white py-6 rounded-2xl text-3xl font-black shadow-[0_6px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none hover:bg-emerald-400 transition-all om-title mt-4">GİRİŞ YAP 🚀</button>
+                  <button type="submit" className="w-full bg-emerald-500 text-white py-6 rounded-2xl text-3xl font-black shadow-[0_6px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none hover:bg-emerald-400 transition-all mt-4">GİRİŞ YAP 🚀</button>
                   <button type="button" onClick={() => setView('student-setup')} className="w-full text-slate-400 font-bold mt-6 hover:text-slate-600 transition-colors text-lg">Geri Dön</button>
                 </form>
               </div>
             )}
 
-            {/* ÖĞRETMEN YÖNETİM PANELİ (MÜKEMMEL VERSİYON 4 + YENİ TASARIM) */}    
+            {/* ÖĞRETMEN YÖNETİM PANELİ */}    
             {view === 'teacher' && (
               <div className="max-w-7xl mx-auto bg-white/95 rounded-[3rem] shadow-2xl border-8 border-emerald-200 mt-16 min-h-[600px] p-8 md:p-14 relative animate-in fade-in duration-300">
                 
                 <div className="flex flex-col md:flex-row justify-between items-center mb-12 no-print gap-6">
-                  <h2 className="text-4xl md:text-5xl font-black text-emerald-700 tracking-tight om-title drop-shadow-sm">Sınıf Yönetim Merkezi</h2>
+                  <h2 className="text-4xl md:text-5xl font-black text-emerald-700 tracking-tight drop-shadow-sm">Sınıf Yönetim Merkezi</h2>
                   <button onClick={() => setView('student-setup')} className="bg-emerald-100 text-emerald-800 px-8 py-4 rounded-full font-black hover:bg-emerald-200 transition-colors border-4 border-emerald-300 shadow-sm text-lg">Öğrenci Ekranına Dön</button>
                 </div>
 
@@ -1369,17 +1390,17 @@ export default function App() {
                       <div className="bg-sky-50 p-8 rounded-[2rem] border-4 border-sky-200 text-center shadow-sm">
                         <div className="text-sky-500 text-5xl mb-4 drop-shadow-sm">⚡</div>
                         <div className="text-md font-black text-sky-700 uppercase tracking-widest mb-2">Sınıf Ort. Hızı</div>
-                        <div className="text-5xl font-black text-sky-900 om-title">{stats.length > 0 ? Math.round(stats.reduce((a, b) => a + (Number(b.wpm) || 0), 0) / stats.length) : 0} <span className="text-2xl">WPM</span></div>
+                        <div className="text-5xl font-black text-sky-900">{stats.length > 0 ? Math.round(stats.reduce((a, b) => a + (Number(b.wpm) || 0), 0) / stats.length) : 0} <span className="text-2xl">WPM</span></div>
                       </div>
                       <div className="bg-fuchsia-50 p-8 rounded-[2rem] border-4 border-fuchsia-200 text-center shadow-sm">
                         <div className="text-fuchsia-500 text-5xl mb-4 drop-shadow-sm">📚</div>
                         <div className="text-md font-black text-fuchsia-700 uppercase tracking-widest mb-2">Toplam Okuma</div>
-                        <div className="text-5xl font-black text-fuchsia-900 om-title">{stats.length} <span className="text-2xl">Kere</span></div>
+                        <div className="text-5xl font-black text-fuchsia-900">{stats.length} <span className="text-2xl">Kere</span></div>
                       </div>
                       <div className="bg-amber-50 p-8 rounded-[2rem] border-4 border-amber-200 text-center shadow-sm">
                         <div className="text-amber-500 text-5xl mb-4 drop-shadow-sm">🎯</div>
                         <div className="text-md font-black text-amber-700 uppercase tracking-widest mb-2">Genel Doğruluk</div>
-                        <div className="text-5xl font-black text-amber-900 om-title">{stats.length > 0 ? ((stats.reduce((a, b) => a + (Number(b.compScore) || 0), 0) / Math.max(1, stats.reduce((a, b) => a + (Number(b.maxScore) || 2), 0))) * 100).toFixed(0) : 0}<span className="text-4xl">%</span></div>
+                        <div className="text-5xl font-black text-amber-900">{stats.length > 0 ? ((stats.reduce((a, b) => a + (Number(b.compScore) || 0), 0) / Math.max(1, stats.reduce((a, b) => a + (Number(b.maxScore) || 2), 0))) * 100).toFixed(0) : 0}<span className="text-4xl">%</span></div>
                       </div>
                     </div>
                     <div className="grid md:grid-cols-2 gap-10">
@@ -1536,7 +1557,7 @@ export default function App() {
                       ))}
                       <button onClick={() => setHwQuestions([...hwQuestions, { q: '', options: ['', '', ''], correct: 0 }])} className="w-full bg-emerald-50 text-emerald-600 py-8 rounded-[2.5rem] font-black text-2xl border-4 border-emerald-300 border-dashed flex items-center justify-center gap-4 hover:bg-emerald-100 transition-colors"><Plus size={32} /> YENİ SORU EKLE</button>
                     </div>
-                    <button onClick={handlePublishHomework} className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-8 rounded-full font-black text-4xl shadow-[0_8px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none transition-all mt-10 flex items-center justify-center gap-4 om-title tracking-wide"><Send size={40} /> SINIF PANOSUNA GÖNDER 🚀</button>
+                    <button onClick={handlePublishHomework} className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-8 rounded-full font-black text-4xl shadow-[0_8px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none transition-all mt-10 flex items-center justify-center gap-4 tracking-wide"><Send size={40} /> SINIF PANOSUNA GÖNDER 🚀</button>
                   </div>
                 )}
 
@@ -1547,30 +1568,28 @@ export default function App() {
                       <div className="w-16 h-16 bg-emerald-200 rounded-full flex items-center justify-center text-emerald-600 font-black text-2xl border-4 border-white flex-shrink-0"><Plus size={32}/></div>
                       <input type="text" placeholder="Öğrenci Adı Soyadı" value={newStudentName} onChange={e => setNewStudentName(e.target.value)} className="flex-1 w-full p-5 border-4 border-white rounded-2xl font-black text-xl outline-none shadow-inner focus:border-emerald-300 transition-colors" />
                       <input type="text" placeholder="Şifre" value={newStudentPassword} onChange={e => setNewStudentPassword(e.target.value)} className="w-full md:w-48 p-5 border-4 border-white rounded-2xl font-black text-center text-2xl tracking-widest outline-none shadow-inner focus:border-emerald-300 transition-colors" />
-                      <button onClick={handleAddStudent} className="w-full md:w-auto bg-emerald-500 text-white font-black px-12 py-5 rounded-2xl shadow-[0_6px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none transition-all text-2xl om-title">EKLE</button>
+                      <button onClick={handleAddStudent} className="w-full md:w-auto bg-emerald-500 text-white font-black px-12 py-5 rounded-2xl shadow-[0_6px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none transition-all text-2xl">EKLE</button>
                     </div>
                     
                     {students.length === 0 && (
                       <div className="text-center bg-amber-50 p-10 rounded-[3rem] border-4 border-amber-200 mb-10">
                         <div className="text-6xl mb-4">🏫</div>
                         <h3 className="text-2xl font-black text-amber-900 mb-4">Sınıf listesi boş görünüyor.</h3>
-                        <button onClick={handleLoadDefaultClass} className="bg-amber-400 text-amber-950 px-10 py-5 rounded-full font-black text-xl border-4 border-amber-500 hover:bg-amber-300 transition-colors shadow-sm om-title">1/A Hazır Listesini Yükle</button>
+                        <button onClick={handleLoadDefaultClass} className="bg-amber-400 text-amber-950 px-10 py-5 rounded-full font-black text-xl border-4 border-amber-500 hover:bg-amber-300 transition-colors shadow-sm">1/A Hazır Listesini Yükle</button>
                       </div>
                     )}
 
                     <div className="grid grid-cols-1 gap-6">
                       {students.map(s => (
                         <div key={s.id} className="flex flex-col md:flex-row justify-between items-center p-6 md:p-8 bg-white rounded-[2.5rem] border-4 border-emerald-100 shadow-sm gap-6 hover:border-emerald-300 transition-colors group">
-                          <div className="flex-1 font-black text-emerald-900 text-2xl md:text-3xl flex items-center gap-4 om-title">
+                          <div className="flex-1 font-black text-emerald-900 text-2xl md:text-3xl flex items-center gap-4">
                             {s.name}
                             {s.teacherStars > 0 && <span className="bg-amber-100 text-amber-700 text-lg px-4 py-2 rounded-2xl flex items-center gap-2 border-2 border-amber-300 shadow-sm font-bold tracking-normal"><Star className="fill-amber-400 text-amber-500" size={20}/> x{s.teacherStars}</span>}
                           </div>
                           <div className="flex items-center gap-4 flex-wrap justify-end">
                             
-                            {/* Öğretmen Yıldızı Butonu */}
                             <button onClick={() => handleGiveTeacherStar(s.id, s.teacherStars)} className="bg-amber-400 text-white p-4 rounded-2xl shadow-[0_6px_0_rgb(180,83,9)] active:translate-y-2 active:shadow-none hover:bg-amber-500 transition-all border-2 border-amber-500 group-hover:animate-pulse" title="Öğrenciye Yıldız Hediye Et"><Gift size={28} /></button>
                             
-                            {/* Akademi Seviye Yönetimi */}
                             <div className="bg-indigo-50 border-4 border-indigo-100 rounded-2xl flex items-center p-3 font-black text-indigo-800">
                               <span className="px-3 text-md">Akademi:</span>
                               <select value={s.academyLevel || 1} onChange={(e) => updateAcademyLevel(Number(e.target.value), s.id)} className="bg-white border-2 border-indigo-200 rounded-xl p-2 outline-none cursor-pointer font-bold text-lg">
@@ -1578,7 +1597,6 @@ export default function App() {
                               </select>
                             </div>
                             
-                            {/* Şifre Yönetimi */}
                             {editingPasswords[s.id] !== undefined ? (
                               <div className="flex items-center gap-3 bg-emerald-50 p-3 rounded-2xl border-4 border-emerald-200">
                                 <input type="text" value={editingPasswords[s.id]} onChange={(e) => setEditingPasswords({ ...editingPasswords, [s.id]: e.target.value })} className="w-28 p-3 border-4 border-emerald-300 rounded-xl text-center font-black text-2xl tracking-[0.5em] outline-none bg-white focus:border-emerald-500" maxLength={4} />
@@ -1605,17 +1623,17 @@ export default function App() {
                   <div className="flex flex-col max-w-lg mx-auto gap-8 mt-16 bg-emerald-50 p-12 rounded-[3rem] border-4 border-emerald-200 animate-in fade-in duration-300 shadow-sm">
                     <div className="text-center mb-4">
                       <div className="w-24 h-24 bg-white rounded-full mx-auto flex items-center justify-center text-emerald-500 shadow-sm mb-6 border-4 border-emerald-200"><Lock size={40} /></div>
-                      <h3 className="text-3xl font-black text-emerald-900 om-title">Yönetici Şifresi</h3>
+                      <h3 className="text-3xl font-black text-emerald-900">Yönetici Şifresi</h3>
                       <p className="text-emerald-700 font-bold mt-4 text-lg">Öğretmen paneline giriş şifrenizi güvenliğiniz için belli aralıklarla güncelleyin.</p>
                     </div>
                     <input type="text" placeholder="Yeni 4 Haneli Şifre" value={newTeacherPasswordInput} onChange={e => setNewTeacherPasswordInput(e.target.value)} className="p-6 border-4 border-white rounded-2xl font-black text-center tracking-[1em] text-3xl outline-none focus:border-emerald-400 shadow-inner" maxLength={4} />
-                    <button onClick={handleUpdateTeacherPassword} className="bg-emerald-500 text-white font-black py-6 rounded-2xl shadow-[0_8px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none transition-all text-2xl mt-4 om-title">ŞİFREYİ GÜNCELLE</button>
+                    <button onClick={handleUpdateTeacherPassword} className="bg-emerald-500 text-white font-black py-6 rounded-2xl shadow-[0_8px_0_rgb(4,120,87)] active:translate-y-2 active:shadow-none transition-all text-2xl mt-4">ŞİFREYİ GÜNCELLE</button>
                   </div>
                 )}
 
                 {/* BİLDİRİM BALONU */}
                 {teacherMsg && (
-                  <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-10 py-5 rounded-full font-black text-xl shadow-2xl animate-bounce z-50 flex items-center gap-4 om-title tracking-wide border-4 border-white/10">
+                  <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-10 py-5 rounded-full font-black text-xl shadow-2xl animate-bounce z-50 flex items-center gap-4 tracking-wide border-4 border-white/10">
                     <Check className="text-emerald-400 w-8 h-8" /> {teacherMsg}
                   </div>
                 )}
