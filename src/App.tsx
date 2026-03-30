@@ -18,17 +18,18 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
+const storage = getStorage(app); 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const EXTERNAL_GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
+const EXTERNAL_GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; 
 
 const PREDEFINED_AVATARS = ['🐶', '🐱', '🐰', '🦁', '🦄', '🦖', '🦋', '🚀', '🧚', '🦸‍♂️', '🧙‍♀️', '👨‍🚀'];
 const PREDEFINED_TOPICS = ['Uzay 🪐', 'Dinozor 🦖', 'Kedi 🐱', 'Araba 🏎️', 'Prenses 👑', 'Robot 🤖', 'Masal Dünyası 🧚', 'Doğa 🌳', 'Dostluk 🤝'];
 
 const DEFAULT_CLASS_LIST = [
-  'BARAN LEVENT', 'ÜMRAN ELMAMO', 'MİRAÇ DEMİRTAŞ', 'AKIN ADLIM', 'ASYA MUNGAN', 'AVZEM BAHADIR',
-  'AZRA BAĞLAN', 'AZRA KINU', 'BAHAR YILMAZÇELİK', 'BERFİN SÖNMEZ', 'CEREN EROL', 'ELA EROL',
-  'ESLEM EROL', 'GÖKHAN MUNGAN', 'HACİ VİLKİN', 'LATİFE KAYURGA', 'MİRA DEMİRTAŞ',
+  'BARAN LEVENT', 'ÜMRAN ELMAMO', 'MİRAÇ DEMİRTAŞ', 'AKIN ADLIM', 'ASYA MUNGAN', 'AVZEM BAHADIR', 
+  'AZRA BAĞLAN', 'AZRA KINU', 'BAHAR YILMAZÇELİK', 'BERFİN SÖNMEZ', 'CEREN EROL', 'ELA EROL', 
+  'ESLEM EROL', 'GÖKHAN MUNGAN', 'HACİ VİLKİN', 'LATİFE KAYURGA', 'MİRA DEMİRTAŞ', 
   'MİRAÇ YILMAZÇELİK', 'SENA MUNGAN', 'TALHA LEVENT', 'UMUT EROL'
 ];
 
@@ -39,7 +40,7 @@ const RANKS = [
   { lvl: 4, name: "Hikâye Ustası", icon: "📜" }
 ];
 
-// ── Wooden badge style helper ──────────────────────────────────────────────
+// ── OYUNLAŞTIRILMIŞ AHŞAP BUTON STİLİ ──
 const wood = {
   background: 'linear-gradient(180deg, #D4912A 0%, #B57A18 100%)',
   border: '3px solid #7A4F10',
@@ -47,34 +48,41 @@ const wood = {
   boxShadow: '0 5px 0 #5A3508, inset 0 1px 0 rgba(255,255,255,0.2)',
 };
 
-// ── Cloud shape component ──────────────────────────────────────────────────
+// ── BULUT ÇİZİM BİLEŞENİ ──
 function Cloud({ style }) {
   return (
-    <div style={{ position: 'absolute', pointerEvents: 'none', zIndex: 1, ...style }}>
+    <div style={{ position: 'absolute', pointerEvents: 'none', zIndex: 1, filter: 'drop-shadow(0 10px 10px rgba(0,0,0,0.05))', ...style }}>
       <div style={{ position: 'relative', width: 150, height: 62 }}>
-        <div style={{ position: 'absolute', width: 150, height: 48, background: 'rgba(255,255,255,0.93)', borderRadius: 60, bottom: 0 }} />
-        <div style={{ position: 'absolute', width: 76, height: 72, background: 'rgba(255,255,255,0.93)', borderRadius: '50%', bottom: 14, left: 28 }} />
-        <div style={{ position: 'absolute', width: 56, height: 60, background: 'rgba(255,255,255,0.93)', borderRadius: '50%', bottom: 10, left: 78 }} />
+        <div style={{ position: 'absolute', width: 150, height: 48, background: 'rgba(255,255,255,0.95)', borderRadius: 60, bottom: 0 }} />
+        <div style={{ position: 'absolute', width: 76, height: 72, background: 'rgba(255,255,255,0.95)', borderRadius: '50%', bottom: 14, left: 28 }} />
+        <div style={{ position: 'absolute', width: 56, height: 60, background: 'rgba(255,255,255,0.95)', borderRadius: '50%', bottom: 10, left: 78 }} />
       </div>
     </div>
   );
 }
 
 export default function App() {
-  const [view, setView] = useState('student-setup');
-  const [stats, setStats] = useState([]);
-  const [students, setStudents] = useState([]);
+  const [view, setView] = useState('student-setup'); 
+  const [stats, setStats] = useState([]); 
+  const [students, setStudents] = useState([]); 
+  
   const [activeHomework, setActiveHomework] = useState(null);
   const [teacherTab, setTeacherTab] = useState('radar');
   const [selectedStudentForProgress, setSelectedStudentForProgress] = useState(null);
+
   const [hwText, setHwText] = useState('');
   const [hwDeadline, setHwDeadline] = useState('');
   const [hwQuestions, setHwQuestions] = useState([{ q: '', options: ['', '', ''], correct: 0 }]);
+  
+  // YENİ: Başarılı Giriş Kontrol Anahtarı
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
   const [studentName, setStudentName] = useState('');
   const [studentPassword, setStudentPassword] = useState('');
-  const [studentAvatar, setStudentAvatar] = useState('🐶');
-  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [studentAvatar, setStudentAvatar] = useState('🐶'); 
+  const [showProfileModal, setShowProfileModal] = useState(false); 
   const [showTeacherStarGift, setShowTeacherStarGift] = useState(false);
+  
   const [interest, setInterest] = useState('');
   const [selectedTopics, setSelectedTopics] = useState([]);
   const [customTopic, setCustomTopic] = useState('');
@@ -86,44 +94,56 @@ export default function App() {
   const [readingResult, setReadingResult] = useState(null);
   const [hasRetried, setHasRetried] = useState(false);
   const [isReadingFinished, setIsReadingFinished] = useState(false);
+  
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  
   const [hwTopic, setHwTopic] = useState('');
   const [hwLevel, setHwLevel] = useState('1');
   const [isGeneratingHw, setIsGeneratingHw] = useState(false);
-  const [loginError, setLoginError] = useState('');
-  const [micError, setMicError] = useState('');
+  
+  const [loginError, setLoginError] = useState(''); 
+  const [micError, setMicError] = useState(''); 
   const [rememberMe, setRememberMe] = useState(false);
   const [savedProfile, setSavedProfile] = useState(null);
   const [user, setUser] = useState(null);
+  
   const [academyLevel, setAcademyLevel] = useState(1);
   const [teacherStars, setTeacherStars] = useState(0);
+
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentPassword, setNewStudentPassword] = useState('1234');
   const [editingPasswords, setEditingPasswords] = useState({});
   const [teacherMsg, setTeacherMsg] = useState('');
-  const [actualTeacherPassword, setActualTeacherPassword] = useState('1234');
-  const [newTeacherPasswordInput, setNewTeacherPasswordInput] = useState('');
+  const [actualTeacherPassword, setActualTeacherPassword] = useState('1234'); 
+  const [newTeacherPasswordInput, setNewTeacherPasswordInput] = useState(''); 
+  
   const [isRecording, setIsRecording] = useState(false);
-  const [audioUrl, setAudioUrl] = useState(null);
+  const [audioUrl, setAudioUrl] = useState(null); 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  
   const [teacherPassword, setTeacherPassword] = useState('');
   const [passwordError, setPasswordError] = useState(false);
+
   const [showHeceler, setShowHeceler] = useState(false);
   const [foundWords, setFoundWords] = useState([]);
+
   const [showBadgeAnimation, setShowBadgeAnimation] = useState(false);
   const [badgeInCorner, setBadgeInCorner] = useState(false);
+
   const [warmupTime, setWarmupTime] = useState(30);
   const [schulteGrid, setSchulteGrid] = useState([]);
   const [schulteExpected, setSchulteExpected] = useState(1);
-  const flashWordsData = [{ w: "Top", o: ["Koş", "Top", "Al"] }, { w: "Kalem", o: ["Silgi", "Defter", "Kalem"] }, { w: "Mavi gök", o: ["Kırmızı ev", "Mavi gök", "Sıcak çay"] }];
+  
+  const flashWordsData = [{w:"Top", o:["Koş","Top","Al"]}, {w:"Kalem", o:["Silgi","Defter","Kalem"]}, {w:"Mavi gök", o:["Kırmızı ev","Mavi gök","Sıcak çay"]}];
   const [flashStage, setFlashStage] = useState(0);
   const [isFlashShowing, setIsFlashShowing] = useState(false);
   const [flashMessage, setFlashMessage] = useState('');
-  const [flashSpeed, setFlashSpeed] = useState(1500);
-  const [metronomeBPM, setMetronomeBPM] = useState(60);
+  const [flashSpeed, setFlashSpeed] = useState(1500); 
+  
+  const [metronomeBPM, setMetronomeBPM] = useState(60); 
   const [metronomeIndex, setMetronomeIndex] = useState(-1);
   const metronomeText = "Bir varmış bir yokmuş. Küçük bir çocuk ormanda gezerken kocaman bir ağaç görmüş. Ağacın dallarında kırmızı elmalar parlıyormuş. Çocuk elmalardan birini alıp afiyetle yemiş.";
   const [metronomeChunks, setMetronomeChunks] = useState([]);
@@ -133,6 +153,7 @@ export default function App() {
       try { await signInAnonymously(auth); } catch (error) { console.error(error); }
     };
     initAuth();
+    
     const localProfileData = localStorage.getItem('okumaMaceramProfile');
     if (localProfileData) {
       try {
@@ -143,8 +164,10 @@ export default function App() {
         setLevel(data.level || '1');
         setAcademyLevel(data.academyLevel || 1);
         setRememberMe(true);
+        setIsAuthenticated(true); // Otomatik giriş yaptı
       } catch (e) { console.error("Local profil okunamadı", e); }
     }
+
     return onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
   }, []);
 
@@ -156,24 +179,33 @@ export default function App() {
       snapshot.forEach((docItem) => loadedStats.push({ id: docItem.id, ...docItem.data() }));
       setStats(loadedStats.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0)));
     });
+
     const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
     const unsubscribeStudents = onSnapshot(studentsRef, (snapshot) => {
       const loadedStudents = [];
       snapshot.forEach((docItem) => loadedStudents.push({ id: docItem.id, ...docItem.data() }));
       setStudents(loadedStudents.sort((a, b) => a.name.localeCompare(b.name, 'tr')));
     });
+
     const hwRef = doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current');
     const unsubscribeHw = onSnapshot(hwRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data.deadline && new Date() > new Date(data.deadline)) { deleteDoc(hwRef); setActiveHomework(null); }
-        else setActiveHomework(data);
-      } else setActiveHomework(null);
+        if (data.deadline && new Date() > new Date(data.deadline)) {
+           deleteDoc(hwRef);
+           setActiveHomework(null);
+        } else {
+           setActiveHomework(data);
+        }
+      }
+      else setActiveHomework(null);
     });
+
     const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin');
     const unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
       if (docSnap.exists() && docSnap.data().password) setActualTeacherPassword(docSnap.data().password);
     });
+
     return () => { unsubscribeStats(); unsubscribeStudents(); unsubscribeHw(); unsubscribeSettings(); };
   }, [user]);
 
@@ -185,8 +217,9 @@ export default function App() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setSavedProfile(data); setStudentName(data.studentName); setStudentPassword(data.studentPassword);
-        setStudentAvatar(data.avatar || '🐶'); setLevel(data.level); setAcademyLevel(data.academyLevel || 1);
+        setStudentAvatar(data.avatar || '🐶'); setLevel(data.level); setAcademyLevel(data.academyLevel || 1); 
         setRememberMe(true);
+        setIsAuthenticated(true);
         const topicsArray = (data.interest || '').split(', ').filter(t => t.trim() !== '');
         const cleanPredefined = PREDEFINED_TOPICS.map(t => t.split(' ')[0]);
         setSelectedTopics(topicsArray.filter(t => cleanPredefined.includes(t)));
@@ -200,11 +233,11 @@ export default function App() {
     if (studentName) {
       const matchedStudent = students.find(s => s.name === studentName);
       if (matchedStudent) {
-        setTeacherStars(matchedStudent.teacherStars || 0);
-        if (matchedStudent.hasNewGift) {
-          setShowTeacherStarGift(true);
-          updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', matchedStudent.id), { hasNewGift: false });
-        }
+         setTeacherStars(matchedStudent.teacherStars || 0);
+         if (matchedStudent.hasNewGift) {
+            setShowTeacherStarGift(true);
+            updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', matchedStudent.id), { hasNewGift: false });
+         }
       }
     }
   }, [studentName, students]);
@@ -213,9 +246,11 @@ export default function App() {
 
   const updateAcademyLevel = async (newLevel, forceStudentId = null) => {
     if (forceStudentId) {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', forceStudentId), { academyLevel: newLevel });
-      showTeacherMessage('✅ Seviye güncellendi!'); return;
+       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', forceStudentId), { academyLevel: newLevel });
+       showTeacherMessage('✅ Seviye güncellendi!');
+       return;
     }
+
     if (newLevel > academyLevel) {
       setAcademyLevel(newLevel);
       if (savedProfile) {
@@ -223,6 +258,7 @@ export default function App() {
         setSavedProfile(newProfile);
         if (user) await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), newProfile, { merge: true });
         localStorage.setItem('okumaMaceramProfile', JSON.stringify(newProfile));
+        
         const matched = students.find(s => s.name === studentName);
         if (matched) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', matched.id), { academyLevel: newLevel });
       }
@@ -238,10 +274,14 @@ export default function App() {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const msg = new SpeechSynthesisUtterance(text);
-      msg.lang = 'tr-TR'; msg.rate = 0.9; msg.pitch = 1.3;
+      msg.lang = 'tr-TR';
+      msg.rate = 0.9;
+      msg.pitch = 1.3; 
+      
       const voices = window.speechSynthesis.getVoices();
       const turkishFemale = voices.find(voice => voice.lang.includes('tr') && voice.name.includes('Female'));
       if (turkishFemale) msg.voice = turkishFemale;
+      
       window.speechSynthesis.speak(msg);
     }
   };
@@ -249,57 +289,91 @@ export default function App() {
   const playTick = () => {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
       osc.type = 'sine'; osc.frequency.setValueAtTime(800, ctx.currentTime);
       gain.gain.setValueAtTime(0.3, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
       osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1);
-    } catch (e) {}
+    } catch(e) {}
   };
 
   useEffect(() => {
     let timer = null;
-    if (view === 'academy-warmup-active' && warmupTime > 0) { timer = setTimeout(() => setWarmupTime(p => p - 1), 1000); }
-    else if (view === 'academy-warmup-active' && warmupTime === 0) { updateAcademyLevel(2); showTeacherMessage("Gözlerin ısındı! Schulte Tablosu açıldı. 🔓"); setView('academy-menu'); }
+    if (view === 'academy-warmup-active' && warmupTime > 0) {
+      timer = setTimeout(() => setWarmupTime(p => p - 1), 1000);
+    } else if (view === 'academy-warmup-active' && warmupTime === 0) {
+      updateAcademyLevel(2);
+      showTeacherMessage("Gözlerin ısındı! Schulte Tablosu açıldı. 🔓");
+      setView('academy-menu');
+    }
     return () => clearTimeout(timer);
   }, [view, warmupTime]);
 
   useEffect(() => {
     let interval = null;
     if (view === 'academy-metronome-active' && metronomeIndex < metronomeChunks.length) {
-      interval = setInterval(() => { playTick(); setMetronomeIndex((prev) => prev + 1); }, (60 / metronomeBPM) * 1000);
+      interval = setInterval(() => {
+        playTick();
+        setMetronomeIndex((prev) => prev + 1);
+      }, (60 / metronomeBPM) * 1000);
     }
     return () => { if (interval) clearInterval(interval); };
   }, [view, metronomeChunks, metronomeBPM, metronomeIndex]);
 
+
   const startSchulte = () => {
-    setSchulteGrid([...Array(9)].map((_, i) => i + 1).sort(() => Math.random() - 0.5));
-    setSchulteExpected(1); setView('academy-schulte-ready');
+    setSchulteGrid([...Array(9)].map((_,i)=>i+1).sort(()=>Math.random()-0.5));
+    setSchulteExpected(1);
+    setView('academy-schulte-ready');
     speakInstruction("Harika gidiyorsun! Şimdi bir dedektif gibi sayıları bulacağız. Lütfen gözünü tablonun tam ortasından hiç ayırma ve kenarlardaki sayıları birden dokuza kadar sırayla bulup tıkla. Hazırsan başla!");
   };
 
   const handleSchulteClick = (num) => {
-    if (num === schulteExpected) {
-      if (num === 9) { updateAcademyLevel(3); showTeacherMessage("Harika! Çevresel görüşün harika. Flaş modu açıldı. 🔓"); setView('academy-menu'); }
-      else { setSchulteExpected(p => p + 1); }
+    if(num === schulteExpected) {
+      if(num === 9) {
+        updateAcademyLevel(3);
+        showTeacherMessage("Harika! Çevresel görüşün harika. Flaş modu açıldı. 🔓");
+        setView('academy-menu');
+      } else {
+        setSchulteExpected(p => p + 1);
+      }
     }
   };
 
-  const startFlash = () => { setFlashStage(0); setFlashMessage(''); setView('academy-flash-ready'); speakInstruction("Şimdi gözlerinle fotoğraf çekme zamanı! Ekranda bir kelime şimşek gibi parlayıp kaybolacak. Onu aklında tut ve aşağıdaki seçeneklerden doğru olanı bul. Gözünü kırpma, hazırsan başla!"); };
+  const startFlash = () => {
+    setFlashStage(0); setFlashMessage(''); setView('academy-flash-ready');
+    speakInstruction("Şimdi gözlerinle fotoğraf çekme zamanı! Ekranda bir kelime şimşek gibi parlayıp kaybolacak. Onu aklında tut ve aşağıdaki seçeneklerden doğru olanı bul. Gözünü kırpma, hazırsan başla!");
+  };
 
-  const triggerFlashWord = () => { setIsFlashShowing(true); setTimeout(() => { setIsFlashShowing(false); }, flashSpeed); };
+  const triggerFlashWord = () => {
+    setIsFlashShowing(true);
+    setTimeout(() => { setIsFlashShowing(false); }, flashSpeed); 
+  };
 
   const handleFlashAnswer = (opt, correctOpt) => {
-    if (opt === correctOpt) {
-      if (flashStage === 2) { updateAcademyLevel(4); showTeacherMessage("Fotoğrafik hafızan süper! Metronom açıldı. 🔓"); setView('academy-menu'); }
-      else { setFlashMessage("Doğru! Hazırlan..."); setTimeout(() => { setFlashMessage(''); setFlashStage(p => p + 1); triggerFlashWord(); }, 1500); }
-    } else { setFlashMessage("Yanlış kelime. Baştan başlıyoruz..."); setTimeout(() => { setFlashStage(0); setFlashMessage(''); triggerFlashWord(); }, 2000); }
+    if(opt === correctOpt) {
+      if(flashStage === 2) {
+        updateAcademyLevel(4);
+        showTeacherMessage("Fotoğrafik hafızan süper! Metronom açıldı. 🔓");
+        setView('academy-menu');
+      } else {
+        setFlashMessage("Doğru! Hazırlan...");
+        setTimeout(() => {
+          setFlashMessage(''); setFlashStage(p => p+1); triggerFlashWord();
+        }, 1500);
+      }
+    } else {
+      setFlashMessage("Yanlış kelime. Baştan başlıyoruz...");
+      setTimeout(() => { setFlashStage(0); setFlashMessage(''); triggerFlashWord(); }, 2000);
+    }
   };
 
   const startMetronome = () => {
-    const words = metronomeText.split(/\s+/); const chunks = [];
-    for (let i = 0; i < words.length; i += 2) chunks.push(words.slice(i, i + 2).join(' '));
+    const words = metronomeText.split(/\s+/);
+    const chunks = [];
+    for(let i=0; i<words.length; i+=2) chunks.push(words.slice(i, i+2).join(' ')); 
     setMetronomeChunks(chunks); setMetronomeIndex(-1); setView('academy-metronome-ready');
     speakInstruction("İşte büyük görev! Arka planda çalan tik-tak sesinin ritmine uyarak ekrana gelen kelimeleri sesli bir şekilde oku. Ritimden hiç kopma. Hazırsan macerayı başlat!");
   };
@@ -316,18 +390,19 @@ export default function App() {
     try {
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), { password: newPassword });
       showTeacherMessage('✅ Şifre güncellendi!');
-      const newEditing = { ...editingPasswords }; delete newEditing[id]; setEditingPasswords(newEditing);
+      const newEditing = {...editingPasswords}; delete newEditing[id]; setEditingPasswords(newEditing);
     } catch (e) { showTeacherMessage('❌ Hata oluştu.'); }
   };
 
   const handleDeleteStudent = async (id, name) => {
-    try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id)); showTeacherMessage(`🗑️ ${name} silindi.`); }
-    catch (e) { showTeacherMessage(`❌ Silinemedi.`); }
+    try {
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id)); showTeacherMessage(`🗑️ ${name} silindi.`);
+    } catch (e) { showTeacherMessage(`❌ Silinemedi.`); }
   };
 
   const handleDeleteStat = async (id) => {
     if (window.confirm('Bu okuma kaydını silmek istediğinize emin misiniz?')) {
-      try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stats', id)); showTeacherMessage('🗑️ Kayıt silindi.'); }
+      try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stats', id)); showTeacherMessage('🗑️ Kayıt silindi.'); } 
       catch (e) { showTeacherMessage('❌ Kayıt silinemedi.'); }
     }
   };
@@ -347,9 +422,10 @@ export default function App() {
     showTeacherMessage('⏳ Ödev gönderiliyor...');
     try {
       const homeworkData = {
-        text: hwText.replace(/\*/g, ''),
+        text: hwText.replace(/\*/g, ''), 
         questions: hwQuestions.map((q, idx) => ({ id: idx + 1, q: q.q, options: q.options, correct: Number(q.correct) })),
-        deadline: hwDeadline || null, timestamp: serverTimestamp()
+        deadline: hwDeadline || null,
+        timestamp: serverTimestamp()
       };
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current'), homeworkData);
       showTeacherMessage('✅ Ödev sınıfa başarıyla gönderildi!');
@@ -358,8 +434,11 @@ export default function App() {
 
   const handleRemoveHomework = async () => {
     if (window.confirm('Aktif ödevi silmek istediğinize emin misiniz?')) {
-      try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current')); setActiveHomework(null); showTeacherMessage('🗑️ Ödev yayından kaldırıldı.'); }
-      catch (e) { showTeacherMessage('❌ Ödev kaldırılamadı.'); }
+      try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'homework', 'current'));
+        setActiveHomework(null);
+        showTeacherMessage('🗑️ Ödev yayından kaldırıldı.');
+      } catch(e) { showTeacherMessage('❌ Ödev kaldırılamadı.'); }
     }
   };
 
@@ -372,16 +451,20 @@ export default function App() {
   };
 
   const callGeminiAPI = async (topic, selectedLevel, avgWpm, avgScore) => {
-    const apiKey = EXTERNAL_GEMINI_API_KEY;
+    const apiKey = EXTERNAL_GEMINI_API_KEY; 
     if (!apiKey) throw new Error("API Anahtarı bulunamadı.");
+
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const studentNamesStr = students.map(s => s.name.split(' ')[0]).join(', ');
     const categories = ['renk', 'hayvan', 'meyve', 'aile üyesi', 'giysi', 'oyuncak', 'duygu', 'doğa (ağaç, çiçek, bulut vb.)'];
     const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+    
     let levelInstructions = selectedLevel === '1' ? "KOLAY SEVİYE: Kesinlikle 30 ile 50 kelime arasında yaz." : selectedLevel === '2' ? "ORTA SEVİYE: Kesinlikle 50 ile 90 kelime arasında yaz." : "ZOR SEVİYE: Kesinlikle 90 ile 140 kelime arasında yaz.";
-    const adaptiveInstruction = avgWpm > 0
+    
+    const adaptiveInstruction = avgWpm > 0 
       ? `ÖĞRENCİ PROFİLİ (UYARLANABİLİR EĞİTİM): Bu öğrencinin geçmiş okuma hızı ortalaması ${avgWpm} WPM ve okuduğunu anlama skoru ortalaması ${avgScore.toFixed(1)}/2. Lütfen metnin zorluğunu, kelime uzunluklarını ve anlamsal derinliğini bu öğrencinin seviyesini bir adım ileriye taşıyacak şekilde pedagojik olarak uyarla. Eğer hızı 40 WPM altındaysa karmaşık heceler (str, kr) kullanma. Anlama skoru 1.5'in altındaysa daha somut ve net olaylar kurgula.`
       : `ÖĞRENCİ PROFİLİ: Bu öğrenci sistemi ilk kez kullanıyor. Standart 1. sınıf seviyesinde doğal ve pedagojik bir metin üret.`;
+
     const prompt = `Sen Türkçe dilini kusursuz, son derece doğal ve insansı bir şekilde kullanan ödüllü bir çocuk edebiyatı yazarı ve şefkatli bir 1. sınıf öğretmenisin. Konu: "${topic}". 
     Şu kurallara SIKI SIKIYA UYMALISIN:
     ${levelInstructions}
@@ -390,32 +473,44 @@ export default function App() {
     HAZİNE AVI: Hikayenin içine kesinlikle "${randomCategory}" kategorisine ait 3 farklı kelimeyi zorlama olmadan, çok doğal bir şekilde kurguya yedirerek yerleştir.
     DİKKAT KESİNLİKLE YASAK: Gizli kelimeleri veya metindeki herhangi bir kelimeyi ** (yıldız) veya başka bir işaretle ASLA VURGULAMA! Metin tamamen düz yazı olsun.
     Karakter isimlerini şu listeden seç: ${studentNamesStr || 'Ali, Elif'}.
+    
     YALNIZCA JSON formatında cevap ver (targetWords içine kelimenin metinde geçen TAMP TAMINA ek almış halini küçük harfle yaz):
-    { "text": "Hikaye metni buraya...", "questions": [ { "id": 1, "q": "Soru 1?", "options": ["A", "B", "C"], "correct": 0 }, { "id": 2, "q": "Soru 2?", "options": ["A", "B", "C"], "correct": 1 } ], "treasureHunt": { "task": "Metindeki gizli ${randomCategory.split(' (')[0]} isimlerini bulup tıkla!", "targetWords": ["kelime1", "kelime2", "kelime3"] } }`;
+    { 
+      "text": "Hikaye metni buraya...", 
+      "questions": [ { "id": 1, "q": "Soru 1?", "options": ["A", "B", "C"], "correct": 0 }, { "id": 2, "q": "Soru 2?", "options": ["A", "B", "C"], "correct": 1 } ],
+      "treasureHunt": { "task": "Metindeki gizli ${randomCategory.split(' (')[0]} isimlerini bulup tıkla!", "targetWords": ["kelime1", "kelime2", "kelime3"] }
+    }`;
+
     const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
+
     try {
       const response = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
       if (!response.ok) throw new Error(`API Hatası: ${response.status}`);
       const data = await response.json();
       const parsedData = JSON.parse(data.candidates[0].content.parts[0].text);
-      if (parsedData.text) parsedData.text = parsedData.text.replace(/\*/g, '');
+      if(parsedData.text) parsedData.text = parsedData.text.replace(/\*/g, '');
       return parsedData;
-    } catch (err) { console.error("❌ YAPAY ZEKA FONKSİYON HATASI:", err); throw err; }
+    } catch (err) {
+      console.error("❌ YAPAY ZEKA FONKSİYON HATASI:", err);
+      throw err;
+    }
   };
 
   const handleGenerateHomeworkAI = async () => {
     if (!hwTopic) { showTeacherMessage("⚠️ Lütfen bir ödev konusu yazın."); return; }
     setIsGeneratingHw(true); showTeacherMessage("⏳ Yapay zeka ödevi hazırlıyor, lütfen bekleyin...");
     try {
-      const aiData = await callGeminiAPI(hwTopic, hwLevel, 0, 0);
-      setHwText(aiData.text); setHwQuestions(aiData.questions);
+      const aiData = await callGeminiAPI(hwTopic, hwLevel, 0, 0); 
+      setHwText(aiData.text);
+      setHwQuestions(aiData.questions);
       showTeacherMessage("✨ Ödev başarıyla oluşturuldu! Düzenleyip sınıfa gönderebilirsiniz.");
-    } catch (err) { showTeacherMessage("❌ Sunucu şuan çok yoğun daha sonra tekrar deneyiniz."); }
-    finally { setIsGeneratingHw(false); }
+    } catch (err) {
+      showTeacherMessage("❌ Sunucu şuan çok yoğun daha sonra tekrar deneyiniz.");
+    } finally { setIsGeneratingHw(false); }
   };
 
   const evaluateReadingWithAI = async (text, timeSeconds, wpm, compScore, maxScore, audioDataUrl) => {
-    const apiKey = EXTERNAL_GEMINI_API_KEY;
+    const apiKey = EXTERNAL_GEMINI_API_KEY; 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const parts = [{ text: `Sen şefkatli bir öğretmensin. Metin: "${text}". Hız: ${wpm} wpm. Skor: ${compScore}/${maxScore}. JSON formatında 1-5 arası puanla ve şefkatli geri bildirim yaz: { "akicilik": 4, "telaffuz": 5, "anlama": 5, "okuma_hizi": 4, "geribildirim": "Harika!" }` }];
     if (audioDataUrl) { try { parts.push({ inlineData: { mimeType: "audio/webm", data: audioDataUrl.split(',')[1] } }); } catch (e) {} }
@@ -428,51 +523,80 @@ export default function App() {
   };
 
   const validateStudent = () => {
-    if (!studentName || !studentPassword) { setLoginError('Lütfen adını seç ve şifreni gir.'); return false; }
+    if (!studentName || !studentPassword) { setLoginError('Lütfen ismini seç ve şifreni gir.'); return false; }
     const matchedStudent = students.find(s => s.name === studentName);
     if (!matchedStudent) { setLoginError('Sınıf listesinde adın bulunamadı.'); return false; }
-    if (matchedStudent.password !== studentPassword) { setLoginError('Hatalı şifre!'); return false; }
+    if (matchedStudent.password !== studentPassword) { setLoginError('Hatalı şifre! Tekrar dene.'); return false; }
     setLoginError(''); return true;
   };
 
+  // YENİ GİRİŞ MANTIĞI: Şifre doğrulandıktan sonra kartlar açılır
+  const handleLoginSubmit = () => {
+    if (validateStudent()) {
+      setIsAuthenticated(true);
+      if (rememberMe) {
+         saveProfileDataLocally();
+      }
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setRememberMe(false);
+    localStorage.removeItem('okumaMaceramProfile');
+    setStudentName('');
+    setStudentPassword('');
+  };
+
   const saveProfileDataLocally = async () => {
-    if (!rememberMe) { localStorage.removeItem('okumaMaceramProfile'); return; }
+    if (!rememberMe) {
+      localStorage.removeItem('okumaMaceramProfile');
+      return;
+    }
     const combinedInterest = [...selectedTopics, customTopic].filter(t => t.trim() !== '').join(', ');
     const profileData = { studentName, studentPassword, avatar: studentAvatar, interest: combinedInterest || 'Uzay', level, academyLevel: academyLevel, streak: savedProfile?.streak || 0, lastReadingDate: savedProfile?.lastReadingDate || null };
     localStorage.setItem('okumaMaceramProfile', JSON.stringify(profileData));
-    if (user) { await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), profileData); setSavedProfile(profileData); }
+    
+    if (user) {
+      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), profileData);
+      setSavedProfile(profileData);
+    }
   };
 
   const handleStartFreeReading = async () => {
-    if (!validateStudent()) return;
     const combinedInterest = [...selectedTopics, customTopic].filter(t => t.trim() !== '').join(', ');
-    if (!combinedInterest) { setLoginError('Lütfen bir konu seç.'); return; }
+    if (!combinedInterest) { setLoginError('Lütfen en az bir konu seç.'); return; }
     await saveProfileDataLocally();
     await startReadingSession(combinedInterest, level, false);
   };
 
   const handleStartHomework = async () => {
-    if (!validateStudent() || !activeHomework) return;
+    if (!activeHomework) return;
     await saveProfileDataLocally();
     await startReadingSession('Sınıf Ödevi', 'Ödev', true);
   };
 
   const startReadingSession = async (currentInterest, currentLevel, isHomework) => {
-    setInterest(currentInterest); setLevel(currentLevel); setAnswers({}); setHasRetried(false); setAudioUrl(null);
-    setIsReadingFinished(false); setShowHeceler(false); setFoundWords([]);
+    setInterest(currentInterest); setLevel(currentLevel); setAnswers({}); setHasRetried(false); setAudioUrl(null); setIsReadingFinished(false); setShowHeceler(false); setFoundWords([]);
     setShowBadgeAnimation(false); setBadgeInCorner(false);
+    
     const studentPastStats = stats.filter(s => s.name === studentName);
     let avgWpm = 0; let avgScore = 0;
     if (studentPastStats.length > 0) {
-      avgWpm = Math.round(studentPastStats.reduce((acc, curr) => acc + (Number(curr.wpm) || 0), 0) / studentPastStats.length);
-      avgScore = studentPastStats.reduce((acc, curr) => acc + (Number(curr.compScore) || 0), 0) / studentPastStats.length;
+       avgWpm = Math.round(studentPastStats.reduce((acc, curr) => acc + (Number(curr.wpm) || 0), 0) / studentPastStats.length);
+       avgScore = studentPastStats.reduce((acc, curr) => acc + (Number(curr.compScore) || 0), 0) / studentPastStats.length;
     }
-    if (isHomework) { setStoryData(activeHomework); setView('reading-ready'); }
-    else {
+
+    if (isHomework) {
+      setStoryData(activeHomework); setView('reading-ready');
+    } else {
       setIsGeneratingStory(true);
-      try { const aiData = await callGeminiAPI(currentInterest, currentLevel, avgWpm, avgScore); setStoryData(aiData); setView('reading-ready'); }
-      catch (err) { setLoginError("Sunucu şuan çok yoğun daha sonra tekrar deneyiniz."); setView('student-setup'); }
-      finally { setIsGeneratingStory(false); }
+      try {
+        const aiData = await callGeminiAPI(currentInterest, currentLevel, avgWpm, avgScore);
+        setStoryData(aiData); setView('reading-ready');
+      } catch (err) {
+        setLoginError("Sunucu şu an yoğun, daha sonra tekrar deneyin."); setView('student-setup');
+      } finally { setIsGeneratingStory(false); }
     }
   };
 
@@ -506,52 +630,61 @@ export default function App() {
     const timeSpentSeconds = (Date.now() - startTime) / 1000;
     const wordCount = storyData.text.split(/\s+/).length;
     setTempStats({ words: wordCount, timeSeconds: Math.round(timeSpentSeconds), wpm: Math.round((wordCount / timeSpentSeconds) * 60) });
-    setIsReadingFinished(true);
+    setIsReadingFinished(true); 
   };
 
   const checkAnswers = () => {
     let correctCount = 0; storyData.questions.forEach(q => { if (answers[q.id] === q.correct) correctCount++; });
-    if (correctCount < storyData.questions.length && !hasRetried) { setHasRetried(true); setView('reading-active'); }
-    else calculateFinalResult();
+    if (correctCount < storyData.questions.length && !hasRetried) { setHasRetried(true); setView('reading-active'); } else calculateFinalResult();
   };
 
   const calculateFinalResult = async () => {
     let correctCount = 0; storyData.questions.forEach(q => { if (answers[q.id] === q.correct) correctCount++; });
     setView('evaluating'); setIsEvaluating(true);
+
     let firebaseAudioUrl = null;
     if (audioChunksRef.current && audioChunksRef.current.length > 0) {
-      setIsUploading(true);
-      try {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const fileName = `audio_${studentName.replace(/\s+/g, '_')}_${Date.now()}.webm`;
-        const storageRef = ref(storage, `artifacts/${appId}/audio/${fileName}`);
-        const uploadPromise = uploadBytes(storageRef, audioBlob);
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Zaman Aşımı")), 10000));
-        await Promise.race([uploadPromise, timeoutPromise]);
-        firebaseAudioUrl = await getDownloadURL(storageRef);
-      } catch (e) { console.error("Ses yükleme hatası", e); }
-      setIsUploading(false);
+        setIsUploading(true);
+        try {
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            const fileName = `audio_${studentName.replace(/\s+/g, '_')}_${Date.now()}.webm`;
+            const storageRef = ref(storage, `artifacts/${appId}/audio/${fileName}`);
+            
+            const uploadPromise = uploadBytes(storageRef, audioBlob);
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Zaman Aşımı")), 10000));
+            
+            await Promise.race([uploadPromise, timeoutPromise]);
+            firebaseAudioUrl = await getDownloadURL(storageRef);
+        } catch(e) { console.error("Ses yükleme hatası", e); }
+        setIsUploading(false);
     }
+
     const maxScore = storyData.questions.length;
     const aiEvaluation = await evaluateReadingWithAI(storyData.text, tempStats.timeSeconds, tempStats.wpm, correctCount, maxScore, audioUrl);
+    
     let currentStreak = savedProfile?.streak || 0;
     const todayStr = new Date().toISOString().split('T')[0];
     if (savedProfile?.lastReadingDate) {
       const diffDays = Math.floor((new Date(todayStr) - new Date(savedProfile.lastReadingDate)) / (1000 * 60 * 60 * 24));
       if (diffDays === 1) currentStreak += 1; else if (diffDays > 1) currentStreak = 1;
     } else currentStreak = 1;
+
     if (user && savedProfile) {
       const newProfile = { ...savedProfile, streak: currentStreak, lastReadingDate: todayStr };
       setSavedProfile(newProfile);
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profileData', 'saved'), newProfile, { merge: true });
       localStorage.setItem('okumaMaceramProfile', JSON.stringify(newProfile));
     }
+
     const earnedBadge = (storyData.treasureHunt && foundWords.length === storyData.treasureHunt.targetWords.length) ? '🕵️‍♂️' : '';
+    
     const now = new Date();
     const dateString = now.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const timeString = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
     const fullDateTime = `${dateString} - ${timeString}`;
+
     const newResult = { name: studentName, avatar: studentAvatar, interest: interest, level: level, words: tempStats.words, timeSeconds: tempStats.timeSeconds, wpm: tempStats.wpm, compScore: correctCount, maxScore: maxScore, badge: earnedBadge, audioUrl: firebaseAudioUrl || null, aiEvaluation, streakAchieved: currentStreak, date: fullDateTime, timestamp: serverTimestamp() };
+    
     setReadingResult(newResult); setIsEvaluating(false); setView('result');
     try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'stats'), newResult); } catch (e) {}
   };
@@ -559,69 +692,72 @@ export default function App() {
   const renderStoryText = () => {
     if (!storyData || !storyData.text) return null;
     const targetWordsLower = (storyData.treasureHunt?.targetWords || []).map(w => w.toLowerCase('tr-TR'));
+
     return storyData.text.split(/(\s+)/).map((wordOrSpace, idx) => {
-      if (!wordOrSpace.trim()) return <span key={idx}>{wordOrSpace}</span>;
-      const match = wordOrSpace.match(/^([^a-zA-ZğüşıöçĞÜŞİÖÇ]*)([a-zA-ZğüşıöçĞÜŞİÖÇ]+)([^a-zA-ZğüşıöçĞÜŞİÖÇ]*)$/);
-      if (!match) return <span key={idx}>{wordOrSpace}</span>;
-      const before = match[1]; const cleanWord = match[2]; const after = match[3];
-      const lowerCleanWord = cleanWord.toLowerCase('tr-TR');
-      const isTarget = targetWordsLower.includes(lowerCleanWord);
-      const isFound = foundWords.includes(lowerCleanWord);
-      const handleWordClick = () => {
-        if (!isReadingFinished) return;
-        if (isTarget && !isFound) {
-          const newFoundWords = [...foundWords, lowerCleanWord]; setFoundWords(newFoundWords);
-          if (storyData.treasureHunt && newFoundWords.length === storyData.treasureHunt.targetWords.length) {
-            setShowBadgeAnimation(true);
-            setTimeout(() => { setShowBadgeAnimation(false); setBadgeInCorner(true); setTimeout(() => setBadgeInCorner(false), 5000); }, 3000);
-          }
-        }
-      };
-      let wordContainerClass = "";
-      if (isReadingFinished && storyData.treasureHunt) {
-        if (isFound) wordContainerClass = "bg-amber-300 text-amber-900 rounded-lg px-1 transition-all duration-300 scale-110 inline-block shadow-sm";
-        else wordContainerClass = "cursor-pointer hover:bg-sky-100 transition-all rounded-lg px-1 inline-block";
-      }
-      let content = <span>{cleanWord}</span>;
-      if (showHeceler) {
-        const sesliler = 'aeıioöuüAEIİOÖUÜ'; let heceler = []; let kelimeKopya = cleanWord;
-        while (kelimeKopya.length > 0) {
-          let sesliIndex = -1;
-          for (let i = kelimeKopya.length - 1; i >= 0; i--) { if (sesliler.includes(kelimeKopya[i])) { sesliIndex = i; break; } }
-          if (sesliIndex === -1) { if (heceler.length > 0) heceler[0] = kelimeKopya + heceler[0]; else heceler.unshift(kelimeKopya); break; }
-          let heceBaslangici = sesliIndex;
-          if (sesliIndex > 0 && !sesliler.includes(kelimeKopya[sesliIndex - 1])) { heceBaslangici = sesliIndex - 1; }
-          heceler.unshift(kelimeKopya.substring(heceBaslangici)); kelimeKopya = kelimeKopya.substring(0, heceBaslangici);
-        }
-        content = <>{heceler.map((hece, hIdx) => (<span key={hIdx} className={hIdx % 2 === 0 ? "text-rose-500" : "text-slate-800"}>{hece}</span>))}</>;
-      }
-      return <span key={idx} onClick={handleWordClick} className={wordContainerClass}>{before}{content}{after}</span>;
+       if (!wordOrSpace.trim()) return <span key={idx}>{wordOrSpace}</span>; 
+       const match = wordOrSpace.match(/^([^a-zA-ZğüşıöçĞÜŞİÖÇ]*)([a-zA-ZğüşıöçĞÜŞİÖÇ]+)([^a-zA-ZğüşıöçĞÜŞİÖÇ]*)$/);
+       if (!match) return <span key={idx}>{wordOrSpace}</span>; 
+       
+       const before = match[1]; const cleanWord = match[2]; const after = match[3];
+       const lowerCleanWord = cleanWord.toLowerCase('tr-TR');
+       
+       const isTarget = targetWordsLower.includes(lowerCleanWord);
+       const isFound = foundWords.includes(lowerCleanWord);
+
+       const handleWordClick = () => {
+         if (!isReadingFinished) return; 
+         if (isTarget && !isFound) { 
+            const newFoundWords = [...foundWords, lowerCleanWord];
+            setFoundWords(newFoundWords); 
+            
+            if (storyData.treasureHunt && newFoundWords.length === storyData.treasureHunt.targetWords.length) {
+               setShowBadgeAnimation(true);
+               setTimeout(() => {
+                 setShowBadgeAnimation(false);
+                 setBadgeInCorner(true);
+                 setTimeout(() => setBadgeInCorner(false), 5000); 
+               }, 3000);
+            }
+         }
+       };
+
+       let wordContainerClass = "";
+       if (isReadingFinished && storyData.treasureHunt) {
+          if (isFound) wordContainerClass = "bg-amber-300 text-amber-900 rounded-lg px-1 transition-all duration-300 scale-110 inline-block shadow-sm";
+          else wordContainerClass = "cursor-pointer hover:bg-sky-100 transition-all rounded-lg px-1 inline-block";
+       }
+
+       let content = <span>{cleanWord}</span>;
+       if (showHeceler) {
+         const sesliler = 'aeıioöuüAEIİOÖUÜ'; let heceler = []; let kelimeKopya = cleanWord;
+         while (kelimeKopya.length > 0) {
+           let sesliIndex = -1;
+           for (let i = kelimeKopya.length - 1; i >= 0; i--) { if (sesliler.includes(kelimeKopya[i])) { sesliIndex = i; break; } }
+           if (sesliIndex === -1) {
+             if (heceler.length > 0) heceler[0] = kelimeKopya + heceler[0]; else heceler.unshift(kelimeKopya); break;
+           }
+           let heceBaslangici = sesliIndex;
+           if (sesliIndex > 0 && !sesliler.includes(kelimeKopya[sesliIndex - 1])) { heceBaslangici = sesliIndex - 1; }
+           heceler.unshift(kelimeKopya.substring(heceBaslangici)); kelimeKopya = kelimeKopya.substring(0, heceBaslangici);
+         }
+         content = <>{heceler.map((hece, hIdx) => (<span key={hIdx} className={hIdx % 2 === 0 ? "text-rose-500" : "text-slate-800"}>{hece}</span>))}</>;
+       }
+       return <span key={idx} onClick={handleWordClick} className={wordContainerClass}>{before}{content}{after}</span>;
     });
   };
 
-  // ── Display helpers ──────────────────────────────────────────────────────
   const displayName = savedProfile ? savedProfile.studentName : studentName;
   const displayAvatar = savedProfile ? (savedProfile.avatar || studentAvatar) : studentAvatar;
   const myBadgeCount = stats.filter(s => s.name === displayName && s.badge).length;
   const myStats = stats.filter(s => s.name === displayName);
   const lastStat = myStats[0];
-  const isLoggedIn = !!studentName;
 
-  // ── Handle login ─────────────────────────────────────────────────────────
-  const handleLoginSubmit = () => {
-    if (validateStudent()) {
-      if (rememberMe) saveProfileDataLocally();
-    }
-  };
-
-  // ── Topic bubble colours ──────────────────────────────────────────────────
   const topicColors = ['#FF6B6B','#FF9F43','#FECA57','#48DBFB','#FF9FF3','#54A0FF','#5F27CD','#00D2D3','#01CBC6'];
-
   // ══════════════════════════════════════════════════════════════════════════
   return (
     <div style={{ position: 'relative', overflowX: 'hidden' }}>
 
-      {/* ── GLOBAL STYLES ─────────────────────────────────────────────── */}
+      {/* ── GLOBAL STYLES & FONTS (Türkçe Karakter Uyumlu) ──────────────── */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&display=swap');
         * { box-sizing: border-box; }
@@ -646,24 +782,33 @@ export default function App() {
         .om-card-hover:hover{transform:translateY(-4px)}
         .om-btn{transition:transform .12s,box-shadow .12s;cursor:pointer;border:none;outline:none}
         .om-btn:active{transform:translateY(3px)}
-        @media print{body *{visibility:hidden}#print-section,#print-section *{visibility:visible}#print-section{position:absolute;left:0;top:0;width:100%}}
+        
+        /* VELİ ÇIKTISI İÇİN TEMİZ YAZDIRMA AYARI */
+        @media print{
+          body * { visibility:hidden; background: white !important; }
+          #print-section, #print-section * { visibility:visible; color: black !important; }
+          #print-section { position:absolute; left:0; top:0; width:100%; box-shadow: none !important; border: none !important; }
+          .no-print { display: none !important; }
+        }
       `}</style>
 
-      {/* ── PROFILE MODAL ─────────────────────────────────────────────── */}
+      {/* ── PROFİL MODALI VE ÇIKIŞ YAP BUTONU ─────────────────────────── */}
       {showProfileModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-sky-900/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-sky-900/50 backdrop-blur-sm p-4 font-sans">
           <div className="bg-white rounded-[3rem] p-8 w-full max-w-md shadow-2xl relative border-8 border-sky-200">
             <button onClick={() => setShowProfileModal(false)} className="absolute top-4 right-4 bg-sky-100 p-2 rounded-full text-sky-600 hover:bg-sky-200"><X /></button>
             <div className="flex flex-col items-center">
               <div className="w-24 h-24 rounded-full bg-sky-100 text-5xl flex items-center justify-center mb-4 shadow-inner ring-4 ring-white">
                 {displayAvatar?.startsWith('data') ? <img src={displayAvatar} className="w-full h-full object-cover rounded-full" alt="" /> : (displayAvatar || '👤')}
               </div>
-              <h2 className="text-3xl font-black text-sky-800">{displayName || 'Misafir'}</h2>
+              <h2 className="text-3xl font-black text-sky-800" style={{fontFamily: "'Nunito',sans-serif"}}>{displayName || 'Misafir'}</h2>
+              
               <div className="flex gap-2 mt-3">
                 <span className="bg-amber-100 text-amber-600 px-4 py-2 rounded-full font-black text-sm flex items-center gap-2 shadow-sm">
                   <Flame size={18} /> {savedProfile?.streak || 0} Gün Ateş Serisi
                 </span>
               </div>
+              
               <div className="mt-4 bg-indigo-600 text-white px-6 py-2 rounded-full font-black text-lg shadow-lg flex items-center gap-2">
                 {RANKS[academyLevel - 1].icon} {RANKS[academyLevel - 1].name}
               </div>
@@ -676,7 +821,7 @@ export default function App() {
                 </div>
               ))}
             </div>
-            <div className="mt-6 space-y-4">
+            <div className="mt-6 space-y-4 mb-6">
               <div className="bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100 flex items-center justify-between shadow-sm">
                 <div className="font-black text-emerald-800 flex items-center gap-2"><BookOpen size={18} /> Kelime Kumbarası</div>
                 <div className="text-2xl font-black text-emerald-600">{myStats.reduce((acc, curr) => acc + (Number(curr.words) || 0), 0)}</div>
@@ -697,13 +842,19 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            {/* YENİ: ÇIKIŞ YAP BUTONU */}
+            <button onClick={() => { handleLogout(); setShowProfileModal(false); }} className="w-full bg-rose-100 text-rose-600 py-3 rounded-xl font-black border-2 border-rose-200 hover:bg-rose-500 hover:text-white transition-colors flex items-center justify-center gap-2">
+              🚪 Çıkış Yap / Başka Öğrenci
+            </button>
+
           </div>
         </div>
       )}
 
       {/* ── TEACHER STAR GIFT ─────────────────────────────────────────── */}
       {showTeacherStarGift && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/70 backdrop-blur-md">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/70 backdrop-blur-md font-sans">
           <div className="bg-white p-12 rounded-[4rem] shadow-2xl border-8 border-amber-300 text-center animate-bounce cursor-pointer" onClick={() => setShowTeacherStarGift(false)}>
             <span className="text-[8rem] block mb-4 drop-shadow-xl">🎁</span>
             <h2 className="text-5xl font-black text-amber-600 leading-tight">Sürpriz Paketin Var!</h2>
@@ -715,7 +866,7 @@ export default function App() {
 
       {/* ── BADGE ANIMATION ───────────────────────────────────────────── */}
       {showBadgeAnimation && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none bg-white/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none bg-white/40 backdrop-blur-sm font-sans">
           <div className="bg-white p-12 rounded-[3rem] shadow-2xl flex flex-col items-center animate-bounce border-8 border-amber-300 text-center max-w-xl">
             <span className="text-9xl mb-4 drop-shadow-2xl">🕵️‍♂️</span>
             <h2 className="text-4xl font-black text-amber-600 leading-tight">İnanılmaz Bir Dikkat!</h2>
@@ -725,7 +876,7 @@ export default function App() {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          ADVENTURE HOME SCREEN
+          ADVENTURE HOME SCREEN (GÖKKUŞAKLI ANA EKRAN)
       ══════════════════════════════════════════════════════════════════ */}
       {view === 'student-setup' && !isGeneratingStory && (
         <div style={{
@@ -766,31 +917,31 @@ export default function App() {
           </div>
 
           {/* ── FLOATING STARS ───────────────────────────────────────── */}
-          <div className="om-tw1" style={{ position: 'absolute', top: '22%', right: '14%', fontSize: 30, zIndex: 2 }}>⭐</div>
-          <div className="om-tw2" style={{ position: 'absolute', top: '38%', right: '6%', fontSize: 22, zIndex: 2 }}>⭐</div>
-          <div className="om-tw3" style={{ position: 'absolute', top: '12%', left: '48%', fontSize: 18, zIndex: 2 }}>⭐</div>
-          <div className="om-tw4" style={{ position: 'absolute', top: '55%', right: '18%', fontSize: 26, zIndex: 2 }}>⭐</div>
+          <div className="om-tw1" style={{ position: 'absolute', top: '22%', right: '14%', fontSize: 30, zIndex: 2, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}>⭐</div>
+          <div className="om-tw2" style={{ position: 'absolute', top: '38%', right: '6%', fontSize: 22, zIndex: 2, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}>⭐</div>
+          <div className="om-tw3" style={{ position: 'absolute', top: '12%', left: '48%', fontSize: 18, zIndex: 2, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}>⭐</div>
+          <div className="om-tw4" style={{ position: 'absolute', top: '55%', right: '18%', fontSize: 26, zIndex: 2, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}>⭐</div>
           <div className="om-tw1" style={{ position: 'absolute', top: '30%', left: '6%', fontSize: 16, zIndex: 2 }}>✨</div>
 
-          {/* ── FLOATING ISLAND / CHARACTERS (top right) ─────────────── */}
-          <div className="om-bob" style={{ position: 'absolute', top: '10%', right: '2%', zIndex: 2, fontSize: 36, lineHeight: 1 }}>
+          {/* ── FLOATING ISLAND / CHARACTERS ─────────────────────────────── */}
+          <div className="om-bob" style={{ position: 'absolute', top: '10%', right: '2%', zIndex: 2, fontSize: 36, lineHeight: 1, filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.2))' }}>
             🏔️<br />
             <span style={{ fontSize: 20 }}>👾⭐</span>
           </div>
 
-          {/* ── DINOSAUR (bottom left) ───────────────────────────────── */}
-          <div style={{ position: 'absolute', bottom: 0, left: 20, zIndex: 3, fontSize: 'clamp(50px, 8vw, 90px)', lineHeight: 1, transform: 'scaleX(-1)', pointerEvents: 'none' }}>🦕</div>
+          {/* ── DINOSAUR ───────────────────────────────── */}
+          <div style={{ position: 'absolute', bottom: 0, left: 20, zIndex: 3, fontSize: 'clamp(50px, 8vw, 90px)', lineHeight: 1, transform: 'scaleX(-1)', pointerEvents: 'none', filter: 'drop-shadow(0 10px 10px rgba(0,0,0,0.3))' }}>🦕</div>
 
           {/* ── TOP NAVIGATION BAR ──────────────────────────────────── */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'clamp(10px,2vw,20px) clamp(12px,3vw,24px) 0', position: 'relative', zIndex: 20, gap: 12 }}>
 
             {/* Left: Profile Badge */}
             <button
-              onClick={() => isLoggedIn ? setShowProfileModal(true) : null}
+              onClick={() => isAuthenticated ? setShowProfileModal(true) : null}
               style={{
                 ...wood, padding: '8px clamp(12px,2vw,20px) 8px 8px',
                 display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
-                cursor: isLoggedIn ? 'pointer' : 'default',
+                cursor: isAuthenticated ? 'pointer' : 'default',
               }}
             >
               <div style={{
@@ -802,11 +953,11 @@ export default function App() {
               </div>
               <div style={{ textAlign: 'left' }}>
                 <div style={{ color: 'white', fontWeight: 900, fontSize: 'clamp(13px,2vw,18px)', lineHeight: 1.2, fontFamily: "'Nunito',sans-serif" }}>
-                  {displayName ? displayName.split(' ')[0] : 'Giriş Yap'}
+                  {isAuthenticated ? displayName.split(' ')[0] : 'Giriş Yapılmadı'}
                 </div>
-                {isLoggedIn && (
+                {isAuthenticated && (
                   <div style={{ color: '#FFE0A0', fontSize: 'clamp(10px,1.5vw,13px)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
-                    🕵️ Rozet Sayısı: {myBadgeCount}
+                    🕵️ Rozet: {myBadgeCount}
                   </div>
                 )}
               </div>
@@ -846,8 +997,8 @@ export default function App() {
             </button>
           </div>
 
-          {/* ── LOGIN CARD (when not logged in) ─────────────────────── */}
-          {!isLoggedIn && (
+          {/* ── GÜVENLİK DÜZELTMESİ: GİRİŞ EKRANI ─────────────────────── */}
+          {!isAuthenticated && (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', zIndex: 10 }}>
               <div style={{
                 background: 'rgba(255,255,255,0.97)',
@@ -855,15 +1006,16 @@ export default function App() {
                 width: '100%', maxWidth: 420,
                 boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
                 border: '4px solid rgba(255,255,255,0.8)',
+                position: 'relative'
               }}>
                 <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                  <div style={{ fontSize: 52, marginBottom: 6 }}>🚀</div>
+                  <div style={{ fontSize: 62, marginBottom: 6, filter: 'drop-shadow(0 5px 5px rgba(0,0,0,0.2))' }} className="om-f1">🚀</div>
                   <h2 style={{ fontFamily: "'Fredoka One',cursive", fontSize: 30, color: '#1a56db', margin: 0 }}>Maceraya Katıl!</h2>
-                  <p style={{ color: '#64748b', fontWeight: 700, marginTop: 8, fontSize: 15 }}>İsmini seç ve şifreni gir</p>
+                  <p style={{ color: '#64748b', fontWeight: 700, marginTop: 8, fontSize: 15, fontFamily: "'Nunito',sans-serif" }}>İsmini seç ve şifreni gir</p>
                 </div>
 
                 <select value={studentName} onChange={e => { setStudentName(e.target.value); setLoginError(''); }}
-                  style={{ width: '100%', padding: '14px 16px', border: '3px solid #BAE6FD', borderRadius: 16, fontWeight: 700, marginBottom: 14, fontSize: 16, outline: 'none', background: '#F0F9FF', color: '#0C4A6E', fontFamily: "'Nunito',sans-serif" }}>
+                  style={{ width: '100%', padding: '14px 16px', border: '3px solid #BAE6FD', borderRadius: 16, fontWeight: 700, marginBottom: 14, fontSize: 16, outline: 'none', background: '#F0F9FF', color: '#0C4A6E', fontFamily: "'Nunito',sans-serif", cursor: 'pointer' }}>
                   <option value="">İsmini Seç...</option>
                   {students.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                 </select>
@@ -873,7 +1025,11 @@ export default function App() {
                   style={{ width: '100%', padding: '14px 16px', border: '3px solid #BAE6FD', borderRadius: 16, fontWeight: 900, marginBottom: 14, fontSize: 28, outline: 'none', textAlign: 'center', letterSpacing: '0.6em', background: '#F0F9FF', color: '#0C4A6E' }}
                   placeholder="••••" maxLength={4} />
 
-                {loginError && <p style={{ color: '#ef4444', fontWeight: 700, textAlign: 'center', marginBottom: 12, fontSize: 15 }}>{loginError}</p>}
+                {loginError && (
+                  <div style={{ background: '#fee2e2', border: '2px solid #fca5a5', padding: '8px 12px', borderRadius: 12, marginBottom: 16, animation: 'om-bob 0.5s ease-out' }}>
+                    <p style={{ color: '#b91c1c', fontWeight: 800, textAlign: 'center', fontSize: 14, margin: 0, fontFamily: "'Nunito',sans-serif" }}>❌ {loginError}</p>
+                  </div>
+                )}
 
                 <div onClick={() => setRememberMe(!rememberMe)}
                   style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, cursor: 'pointer', justifyContent: 'center' }}>
@@ -883,26 +1039,26 @@ export default function App() {
                   }}>
                     {rememberMe && <Check size={14} color="white" />}
                   </div>
-                  <span style={{ color: '#475569', fontWeight: 700, fontSize: 14 }}>Bu cihazda beni hatırla</span>
+                  <span style={{ color: '#475569', fontWeight: 800, fontSize: 15, fontFamily: "'Nunito',sans-serif" }}>Bu cihazda beni hatırla</span>
                 </div>
 
                 <button onClick={handleLoginSubmit} className="om-btn"
-                  style={{ width: '100%', background: 'linear-gradient(180deg,#3b82f6 0%,#2563eb 100%)', color: 'white', padding: '16px', borderRadius: 20, fontWeight: 900, fontSize: 20, boxShadow: '0 5px 0 #1d4ed8', fontFamily: "'Fredoka One',cursive" }}>
+                  style={{ width: '100%', background: 'linear-gradient(180deg,#3b82f6 0%,#2563eb 100%)', color: 'white', padding: '16px', borderRadius: 20, fontWeight: 900, fontSize: 22, boxShadow: '0 6px 0 #1e3a8a', fontFamily: "'Fredoka One',cursive" }}>
                   GİRİŞ YAP 🚀
                 </button>
               </div>
             </div>
           )}
 
-          {/* ── THREE ADVENTURE CARDS ─────────────────────────────────── */}
-          {isLoggedIn && (
+          {/* ── THREE ADVENTURE CARDS (SADECE GİRİŞ YAPINCA GÖZÜKÜR) ──── */}
+          {isAuthenticated && (
             <div style={{
               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
               gap: 'clamp(10px,2vw,24px)', padding: 'clamp(10px,2vw,20px) clamp(12px,3vw,24px) clamp(60px,10vw,100px)',
               flexWrap: 'wrap', zIndex: 10, position: 'relative',
             }}>
 
-              {/* ── CARD 1: HOMEWORK (circular) ──────────────────────── */}
+              {/* ── KART 1: ÖDEV MERKEZİ ──────────────────────── */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
                 <div className="om-card-hover" style={{
                   width: 'clamp(220px,28vw,300px)', height: 'clamp(220px,28vw,300px)',
@@ -912,13 +1068,11 @@ export default function App() {
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                   justifyContent: 'flex-start', position: 'relative', overflow: 'hidden',
                 }}>
-                  {/* Scene illustration */}
                   <div style={{ width: '100%', height: '55%', background: 'linear-gradient(180deg,#C8EAB0 0%,#A0D890 100%)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 4, paddingBottom: 4 }}>
-                    <span style={{ fontSize: 'clamp(18px,3.5vw,32px)' }}>🌳</span>
-                    <span style={{ fontSize: 'clamp(24px,4.5vw,44px)', marginBottom: 2 }}>🏫</span>
-                    <span style={{ fontSize: 'clamp(14px,2.5vw,24px)', marginBottom: 4 }}>📚</span>
+                    <span style={{ fontSize: 'clamp(18px,3.5vw,32px)', filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.2))' }}>🌳</span>
+                    <span style={{ fontSize: 'clamp(24px,4.5vw,44px)', marginBottom: 2, filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.2))' }}>🏫</span>
+                    <span style={{ fontSize: 'clamp(14px,2.5vw,24px)', marginBottom: 4, filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.2))' }}>📚</span>
                   </div>
-                  {/* Mission label */}
                   <div style={{ padding: '8px 12px', textAlign: 'center' }}>
                     {activeHomework ? (
                       <>
@@ -933,7 +1087,6 @@ export default function App() {
                     )}
                   </div>
                 </div>
-                {/* Button below circle */}
                 <button
                   onClick={activeHomework ? handleStartHomework : null}
                   className="om-btn"
@@ -942,7 +1095,7 @@ export default function App() {
                     background: activeHomework ? 'linear-gradient(180deg,#4CAF50 0%,#388E3C 100%)' : '#ccc',
                     color: 'white', padding: 'clamp(8px,1.5vw,12px) clamp(24px,4vw,40px)',
                     borderRadius: 30, fontWeight: 900, fontSize: 'clamp(13px,2vw,18px)',
-                    boxShadow: activeHomework ? '0 5px 0 #2E7D32' : '0 4px 0 #aaa',
+                    boxShadow: activeHomework ? '0 5px 0 #1B5E20' : '0 4px 0 #aaa',
                     cursor: activeHomework ? 'pointer' : 'not-allowed',
                     fontFamily: "'Fredoka One',cursive",
                     border: '3px solid rgba(255,255,255,0.4)',
@@ -951,30 +1104,26 @@ export default function App() {
                 </button>
               </div>
 
-              {/* ── CARD 2: STORY (gold platform) ────────────────────── */}
+              {/* ── KART 2: HİKAYE KEŞFİ ────────────────────── */}
               <div style={{
                 width: 'clamp(240px,30vw,320px)',
                 background: 'linear-gradient(180deg, #FFE566 0%, #FFCA28 45%, #FF9F00 100%)',
-                border: '5px solid #E67E00',
-                borderRadius: 32,
+                border: '5px solid #E67E00', borderRadius: 32,
                 boxShadow: '0 14px 40px rgba(0,0,0,0.22), 0 6px 16px rgba(255,150,0,0.3)',
                 padding: 'clamp(14px,2.5vw,22px)',
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                position: 'relative',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative',
               }} className="om-card-hover">
 
-                {/* Rocket + floating topic bubbles */}
                 <div style={{ position: 'relative', width: '100%', height: 'clamp(110px,16vw,160px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span className="om-f1" style={{ position: 'absolute', top: '10%', left: '8%', fontSize: 'clamp(22px,3.5vw,34px)', background: 'white', borderRadius: '50%', padding: 5, boxShadow: '0 3px 8px rgba(0,0,0,0.12)' }}>🦖</span>
                   <span className="om-f2" style={{ position: 'absolute', top: '5%', right: '10%', fontSize: 'clamp(22px,3.5vw,34px)', background: 'white', borderRadius: '50%', padding: 5, boxShadow: '0 3px 8px rgba(0,0,0,0.12)' }}>🪐</span>
                   <span className="om-f3" style={{ position: 'absolute', bottom: '8%', right: '8%', fontSize: 'clamp(20px,3vw,30px)', background: 'white', borderRadius: '50%', padding: 5, boxShadow: '0 3px 8px rgba(0,0,0,0.12)' }}>👑</span>
                   <span className="om-f4" style={{ position: 'absolute', bottom: '12%', left: '10%', fontSize: 'clamp(20px,3vw,30px)', background: 'white', borderRadius: '50%', padding: 5, boxShadow: '0 3px 8px rgba(0,0,0,0.12)' }}>🌊</span>
-                  <span style={{ fontSize: 'clamp(42px,7vw,70px)', filter: 'drop-shadow(2px 4px 8px rgba(0,0,0,0.2))' }}>🚀</span>
+                  <span style={{ fontSize: 'clamp(42px,7vw,70px)', filter: 'drop-shadow(0 10px 10px rgba(0,0,0,0.3))' }}>🚀</span>
                 </div>
 
                 <h3 style={{ fontFamily: "'Fredoka One',cursive", fontSize: 'clamp(17px,2.8vw,24px)', color: '#7C3A00', margin: '4px 0 10px', textAlign: 'center' }}>HİKAYE KEŞFİ</h3>
 
-                {/* Topic pills */}
                 <div style={{ width: '100%', marginBottom: 8 }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center', marginBottom: 7 }}>
                     {PREDEFINED_TOPICS.slice(0, 6).map((t, i) => (
@@ -983,7 +1132,7 @@ export default function App() {
                         style={{
                           padding: 'clamp(3px,0.8vw,6px) clamp(8px,1.5vw,14px)', borderRadius: 20,
                           fontWeight: 900, fontSize: 'clamp(10px,1.5vw,13px)',
-                          background: selectedTopics.includes(t) ? topicColors[i % topicColors.length] : 'rgba(255,255,255,0.75)',
+                          background: selectedTopics.includes(t) ? topicColors[i % topicColors.length] : 'rgba(255,255,255,0.85)',
                           color: selectedTopics.includes(t) ? 'white' : '#7C3A00',
                           boxShadow: selectedTopics.includes(t) ? '0 3px 0 rgba(0,0,0,0.2)' : '0 2px 0 rgba(0,0,0,0.1)',
                           fontFamily: "'Nunito',sans-serif",
@@ -994,23 +1143,21 @@ export default function App() {
                   </div>
                   <input type="text" value={customTopic} onChange={e => setCustomTopic(e.target.value)}
                     placeholder="Veya başka konu yaz..."
-                    style={{ width: '100%', padding: '7px 12px', borderRadius: 14, border: '2px solid rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.7)', fontWeight: 700, fontSize: 'clamp(11px,1.5vw,13px)', outline: 'none', marginBottom: 7, color: '#7C3A00', fontFamily: "'Nunito',sans-serif" }} />
-                  {/* Level selector */}
+                    style={{ width: '100%', padding: '7px 12px', borderRadius: 14, border: '2px solid rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.9)', fontWeight: 800, fontSize: 'clamp(11px,1.5vw,13px)', outline: 'none', marginBottom: 7, color: '#7C3A00', fontFamily: "'Nunito',sans-serif" }} />
+                  
                   <div style={{ display: 'flex', gap: 5, justifyContent: 'center' }}>
                     {[{ id: '1', l: '🌱 Kolay' }, { id: '2', l: '📚 Orta' }, { id: '3', l: '🔥 Zor' }].map(lv => (
                       <button key={lv.id} onClick={() => setLevel(lv.id)} className="om-btn"
                         style={{
                           flex: 1, padding: 'clamp(4px,0.8vw,7px) 4px', borderRadius: 12, fontWeight: 900,
                           fontSize: 'clamp(10px,1.3vw,13px)', fontFamily: "'Nunito',sans-serif",
-                          background: level === lv.id ? '#FF7C00' : 'rgba(255,255,255,0.7)',
+                          background: level === lv.id ? '#FF7C00' : 'rgba(255,255,255,0.8)',
                           color: level === lv.id ? 'white' : '#7C3A00',
                           boxShadow: level === lv.id ? '0 3px 0 #CC5500' : '0 2px 0 rgba(0,0,0,0.1)',
                         }}>{lv.l}</button>
                     ))}
                   </div>
                 </div>
-
-                {loginError && <p style={{ color: '#b91c1c', fontWeight: 700, fontSize: 12, marginBottom: 6, textAlign: 'center', background: '#fee2e2', padding: '4px 10px', borderRadius: 10 }}>{loginError}</p>}
 
                 <button onClick={handleStartFreeReading} className="om-btn"
                   style={{
@@ -1025,25 +1172,22 @@ export default function App() {
                 </button>
               </div>
 
-              {/* ── CARD 3: ACADEMY (blue) ────────────────────────────── */}
+              {/* ── KART 3: AKADEMİ ────────────────────────────── */}
               <div style={{
                 width: 'clamp(220px,27vw,295px)',
                 background: 'linear-gradient(180deg, #8DA8EA 0%, #6B7FD8 45%, #5060C0 100%)',
-                border: '5px solid #3A4A9A',
-                borderRadius: 28,
+                border: '5px solid #3A4A9A', borderRadius: 28,
                 boxShadow: '0 14px 40px rgba(0,0,0,0.22), 0 6px 16px rgba(80,96,192,0.3)',
                 padding: 'clamp(14px,2.5vw,22px)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
               }} className="om-card-hover">
 
-                {/* Mountain scene */}
-                <div style={{ fontSize: 'clamp(36px,6vw,56px)', marginBottom: 4, lineHeight: 1 }}>🏔️<span style={{ fontSize: '55%' }}>🏯</span></div>
+                <div style={{ fontSize: 'clamp(36px,6vw,56px)', marginBottom: 4, lineHeight: 1, filter: 'drop-shadow(0 5px 5px rgba(0,0,0,0.3))' }}>🏔️<span style={{ fontSize: '55%' }}>🏯</span></div>
 
                 <h3 style={{ fontFamily: "'Fredoka One',cursive", fontSize: 'clamp(14px,2.2vw,20px)', color: 'white', textAlign: 'center', margin: '0 0 12px', lineHeight: 1.15, textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
                   HIZLI OKUMA<br />AKADEMİSİ
                 </h3>
 
-                {/* Rank badges */}
                 <div style={{ display: 'flex', gap: 5, marginBottom: 14, flexWrap: 'wrap', justifyContent: 'center', width: '100%' }}>
                   {RANKS.map(r => (
                     <div key={r.lvl} style={{
@@ -1054,25 +1198,19 @@ export default function App() {
                       boxShadow: academyLevel >= r.lvl ? '0 3px 8px rgba(0,0,0,0.15)' : 'none',
                     }}>
                       <div style={{ fontSize: 'clamp(12px,2vw,18px)' }}>{r.icon}</div>
-                      <div style={{ color: academyLevel >= r.lvl ? '#7C4A00' : 'rgba(255,255,255,0.7)', fontSize: 'clamp(7px,1vw,10px)', fontWeight: 900, lineHeight: 1.2, fontFamily: "'Nunito',sans-serif" }}>
-                        {r.name}
-                      </div>
-                      <div style={{ color: academyLevel >= r.lvl ? '#CC7700' : 'rgba(255,255,255,0.4)', fontSize: 'clamp(6px,0.9vw,9px)', fontWeight: 700, fontFamily: "'Nunito',sans-serif" }}>
-                        Lvl {r.lvl}
-                      </div>
+                      <div style={{ color: academyLevel >= r.lvl ? '#7C4A00' : 'rgba(255,255,255,0.7)', fontSize: 'clamp(7px,1vw,10px)', fontWeight: 900, lineHeight: 1.2, fontFamily: "'Nunito',sans-serif" }}>{r.name}</div>
+                      <div style={{ color: academyLevel >= r.lvl ? '#CC7700' : 'rgba(255,255,255,0.4)', fontSize: 'clamp(6px,0.9vw,9px)', fontWeight: 700, fontFamily: "'Nunito',sans-serif" }}>Lvl {r.lvl}</div>
                     </div>
                   ))}
                 </div>
 
-                <button onClick={() => { if (!validateStudent()) return; setLoginError(''); setView('academy-menu'); }}
+                <button onClick={() => { setView('academy-menu'); }}
                   className="om-btn"
                   style={{
-                    width: '100%',
-                    background: 'linear-gradient(180deg,#1E3A8A 0%,#1E40AF 100%)',
+                    width: '100%', background: 'linear-gradient(180deg,#1E3A8A 0%,#1E40AF 100%)',
                     color: 'white', padding: 'clamp(10px,1.8vw,14px)',
                     borderRadius: 24, fontWeight: 900, fontSize: 'clamp(12px,1.8vw,16px)',
-                    border: '3px solid rgba(255,255,255,0.2)',
-                    boxShadow: '0 5px 0 #0F2266',
+                    border: '3px solid rgba(255,255,255,0.2)', boxShadow: '0 5px 0 #071542',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                     fontFamily: "'Fredoka One',cursive",
                   }}>
@@ -1082,29 +1220,26 @@ export default function App() {
             </div>
           )}
 
-          {/* ── BOTTOM STATS BAR ─────────────────────────────────────── */}
-          {isLoggedIn && lastStat && (
+          {/* ── BİLGİ VE ATEŞ SERİSİ ALTLIĞI ─────────────────────────────────────── */}
+          {isAuthenticated && lastStat && (
             <div style={{
               position: 'absolute', bottom: 16, left: 'clamp(90px,14vw,130px)', zIndex: 10,
-              background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(8px)',
+              background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)',
               borderRadius: 30, padding: 'clamp(7px,1.2vw,10px) clamp(14px,2.5vw,22px)',
               color: 'white', fontWeight: 900, fontSize: 'clamp(13px,2vw,18px)',
               display: 'flex', alignItems: 'center', gap: 10,
-              border: '2px solid rgba(255,255,255,0.25)',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+              border: '2px solid rgba(255,255,255,0.25)', boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
               fontFamily: "'Fredoka One',cursive",
             }}>
               WPM: {lastStat.wpm} 🔥 , Skor: {lastStat.compScore}/{lastStat.maxScore} ⭐
             </div>
           )}
 
-          {/* ── FIRE STREAK ──────────────────────────────────────────── */}
-          {isLoggedIn && (savedProfile?.streak || 0) > 0 && (
+          {isAuthenticated && (savedProfile?.streak || 0) > 0 && (
             <div style={{
               position: 'absolute', bottom: 16, left: 'clamp(14px,3vw,24px)', zIndex: 10,
               background: 'rgba(255,200,80,0.95)', border: '2px solid #F59E0B',
-              borderRadius: 24, padding: '8px 14px',
-              display: 'flex', alignItems: 'center', gap: 6,
+              borderRadius: 24, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 6,
               boxShadow: '0 4px 12px rgba(0,0,0,0.15)', fontFamily: "'Fredoka One',cursive",
             }}>
               <Flame size={18} color="#D97706" />
@@ -1116,24 +1251,19 @@ export default function App() {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          ALL OTHER VIEWS — purple gradient wrapper
+          DİĞER TÜM İÇ EKRANLAR (Hikaye, Akademi, Öğretmen Paneli)
       ══════════════════════════════════════════════════════════════════ */}
       {(view !== 'student-setup' || isGeneratingStory) && (
         <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-fuchsia-200 font-sans flex flex-col relative pt-8 pb-12 overflow-x-hidden">
 
-          <style>{`
-            @keyframes pendulum-inner{0%{transform:translateX(-35vw)}50%{transform:translateX(35vw)}100%{transform:translateX(-35vw)}}
-            .animate-pendulum{animation:pendulum-inner 3s infinite ease-in-out}
-          `}</style>
-
-          {/* Profile top-left for reading/academy views */}
+          {/* İç Ekranlar Üst Navigasyon */}
           {!['teacher-login', 'teacher'].includes(view) && !isGeneratingStory && (
             <div className="absolute top-4 left-4 flex items-center gap-3 z-50">
               <button onClick={() => setShowProfileModal(true)} className="flex items-center gap-3 bg-white/95 p-2 pr-6 rounded-full shadow-xl border-4 border-white hover:scale-105 transition-transform cursor-pointer">
                 <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-sky-100 text-2xl shadow-inner">
                   {displayAvatar?.startsWith('data') ? <img src={displayAvatar} className="w-full h-full object-cover" alt="" /> : (displayAvatar)}
                 </div>
-                <span className="font-black text-sky-800 text-xl">{displayName ? displayName.split(' ')[0] : 'Giriş'}</span>
+                <span className="font-black text-sky-800 text-xl" style={{fontFamily: "'Nunito',sans-serif"}}>{displayName ? displayName.split(' ')[0] : 'Giriş'}</span>
               </button>
               {(savedProfile?.streak || 0) > 0 && (
                 <div className="bg-amber-100 border-2 border-amber-300 px-4 py-2 rounded-full flex items-center gap-2 shadow-md animate-pulse">
@@ -1145,9 +1275,9 @@ export default function App() {
             </div>
           )}
 
-          <div className="flex-1 w-full px-4">
+          <div className="flex-1 w-full px-4 font-sans">
 
-            {/* YZ Story Generation Loading */}
+            {/* HİKAYE ÜRETİM YÜKLENİYOR */}
             {isGeneratingStory && (
               <div className="max-w-md mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl mt-20 text-center animate-in zoom-in duration-300">
                 <Loader2 className="w-20 h-20 text-sky-500 animate-spin mx-auto mb-6" />
@@ -1156,7 +1286,7 @@ export default function App() {
               </div>
             )}
 
-            {/* ACADEMY MENU */}
+            {/* AKADEMİ MENÜSÜ */}
             {view === 'academy-menu' && (
               <div className="max-w-4xl mx-auto bg-white/95 p-10 rounded-[3rem] shadow-2xl border-8 border-indigo-300 mt-20 text-center relative">
                 <button onClick={() => setView('student-setup')} className="absolute top-6 right-6 bg-slate-100 p-3 rounded-full text-slate-600 hover:bg-slate-200"><X size={24} /></button>
@@ -1313,7 +1443,7 @@ export default function App() {
               </div>
             )}
 
-            {/* READING READY */}
+            {/* OKUMA ÖNCESİ EKRAN */}
             {view === 'reading-ready' && (
               <div className="max-w-2xl mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl mt-20 text-center animate-in slide-in-from-bottom-10">
                 <h2 className="text-4xl font-black text-amber-600 mb-8">Hazır mısın?</h2>
@@ -1325,7 +1455,7 @@ export default function App() {
               </div>
             )}
 
-            {/* READING ACTIVE */}
+            {/* AKTİF OKUMA EKRANI */}
             {view === 'reading-active' && (
               <div className="max-w-4xl mx-auto mt-12 space-y-8 relative">
                 {isReadingFinished && storyData?.treasureHunt && (
@@ -1379,7 +1509,7 @@ export default function App() {
               </div>
             )}
 
-            {/* EVALUATING */}
+            {/* YZ DEĞERLENDİRME */}
             {view === 'evaluating' && (
               <div className="max-w-md mx-auto bg-white/95 p-12 rounded-[3rem] shadow-2xl mt-20 text-center animate-in zoom-in duration-300">
                 {isUploading ? (
@@ -1390,7 +1520,7 @@ export default function App() {
               </div>
             )}
 
-            {/* RESULT */}
+            {/* SONUÇ (KARNE) */}
             {view === 'result' && readingResult && (
               <div className="max-w-2xl mx-auto bg-white/95 p-10 rounded-[3rem] shadow-2xl border-8 border-sky-300 mt-12 text-center space-y-8 animate-in slide-in-from-bottom-10">
                 <div className="text-7xl mb-4 animate-bounce">🏆</div>
@@ -1413,7 +1543,7 @@ export default function App() {
               </div>
             )}
 
-            {/* TEACHER LOGIN */}
+            {/* ÖĞRETMEN GİRİŞİ */}
             {view === 'teacher-login' && (
               <div className="max-w-md mx-auto bg-white/95 p-10 rounded-[3rem] shadow-2xl border-8 border-emerald-200 mt-20">
                 <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-500 shadow-inner"><User size={40} /></div>
@@ -1427,7 +1557,7 @@ export default function App() {
               </div>
             )}
 
-            {/* TEACHER PANEL */}    
+            {/* ÖĞRETMEN PANELİ */}
             {view === 'teacher' && (
               <div className="max-w-6xl mx-auto bg-white/95 rounded-[3rem] shadow-2xl border-8 border-emerald-100 mt-12 min-h-[600px] p-8 md:p-12 relative animate-in fade-in duration-300">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-10 no-print gap-4">
